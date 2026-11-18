@@ -55,3 +55,31 @@ export function readEngineConfig(env: Record<string, string | undefined>): Engin
   }
   return { kind: "liquidsoap", host, port, mediaRoot, engineMediaRoot, warnings };
 }
+
+export type HttpConfig = { host: string; warnings: string[] };
+
+/**
+ * Interface bind address (ADR 0006): 127.0.0.1 by default. A non-loopback host is refused unless
+ * PIMSRADIO_ALLOW_REMOTE_UI=1. In Docker, keep the default-safe rule by setting PIMSRADIO_HOST=0.0.0.0
+ * together with PIMSRADIO_ALLOW_REMOTE_UI=1 inside the container and publishing the port on
+ * 127.0.0.1 in the compose file (for instance "127.0.0.1:8080:8080").
+ */
+export function readHttpConfig(env: Record<string, string | undefined>): HttpConfig {
+  const host = env.PIMSRADIO_HOST ?? "127.0.0.1";
+  if (host === "" || host.length > 253 || !/^[A-Za-z0-9._:-]+$/.test(host)) {
+    throw new ConfigError("PIMSRADIO_HOST must be a host name or an IP address");
+  }
+  const warnings: string[] = [];
+  if (!isLoopbackHost(host)) {
+    const allow = env.PIMSRADIO_ALLOW_REMOTE_UI ?? "";
+    if (allow !== "" && allow !== "0" && allow !== "1") throw new ConfigError("PIMSRADIO_ALLOW_REMOTE_UI must be 1 (or unset)");
+    if (allow !== "1") {
+      throw new ConfigError(
+        `refusing to listen on the non-loopback address "${host}": the interface must not be exposed without protection. ` +
+          "Set PIMSRADIO_ALLOW_REMOTE_UI=1 if a reverse proxy or a published-on-localhost port protects it (for instance in Docker).",
+      );
+    }
+    warnings.push(`the interface listens on "${host}": make sure it is not reachable from an untrusted network`);
+  }
+  return { host, warnings };
+}

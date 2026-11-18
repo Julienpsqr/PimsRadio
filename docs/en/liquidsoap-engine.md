@@ -11,6 +11,8 @@ The control plane pushes tracks into Liquidsoap through a built-in telnet client
 | `PIMSRADIO_MEDIA_ROOT` | `/media` | Media folder as seen by PimsRadio. |
 | `PIMSRADIO_LS_MEDIA_ROOT` | same | The same folder as seen by Liquidsoap (Docker volume mounted elsewhere). |
 | `PIMSRADIO_LS_ALLOW_REMOTE` | unset | `1` to allow a telnet host that is not loopback (see below). |
+| `PIMSRADIO_HOST` | `127.0.0.1` | Listen address of the HTTP interface (ADR 0006). A non-loopback host refuses to start unless `PIMSRADIO_ALLOW_REMOTE_UI=1`. |
+| `PIMSRADIO_ALLOW_REMOTE_UI` | unset | `1` to allow a non-loopback listen address. Docker: inside the container set `PIMSRADIO_HOST=0.0.0.0` with this variable, and publish the port in the compose file as `127.0.0.1:8080:8080`. |
 
 With no variable set PimsRadio starts with the fake engine, as before. An invalid value stops startup with a clear message (a configuration error, not an engine outage). Startup never depends on Liquidsoap being up: the connection is made in the background.
 

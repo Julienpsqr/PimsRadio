@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { createApi } from "./api/server.js";
 import { openDb } from "./db/db.js";
 import { type AirEngine, FakeEngine } from "./engine/engine.js";
-import { ConfigError, readEngineConfig } from "./engine/config.js";
+import { ConfigError, readEngineConfig, readHttpConfig } from "./engine/config.js";
 import { LiquidsoapEngine } from "./engine/liquidsoap-engine.js";
 import { Grid } from "./scheduler/grid.js";
 import { Library } from "./library/library.js";
@@ -14,7 +14,9 @@ const port = Number(process.env.PORT ?? 8080);
 const timeZone = process.env.PIMSRADIO_TZ ?? "Europe/Paris";
 
 let engineConfig;
+let httpConfig;
 try {
+  httpConfig = readHttpConfig(process.env);
   engineConfig = readEngineConfig(process.env);
 } catch (e) {
   if (e instanceof ConfigError) {
@@ -24,6 +26,7 @@ try {
   throw e;
 }
 
+for (const w of httpConfig.warnings) console.warn(`WARNING: ${w}`);
 mkdirSync(dataDir, { recursive: true });
 const db = openDb(join(dataDir, "pimsradio.db"));
 const library = new Library(db);
@@ -39,13 +42,17 @@ if (engineConfig.kind === "liquidsoap") {
   });
   live.start(); // background: startup never depends on the engine being up
   for (const sig of ["SIGINT", "SIGTERM"] as const) {
-    process.on(sig, () => void live.close().finally(() => process.exit(0)));
+    process.on(sig, () => {
+      live.close()
+        .catch((e: unknown) => console.error(`[engine] close failed: ${e instanceof Error ? e.message : String(e)}`))
+        .finally(() => process.exit(0));
+    });
   }
   engine = live;
 } else {
   engine = new FakeEngine();
 }
 // The planner loop (a timer calling Planner.tick) is not wired here yet (out of scope of item 001).
-createApi({ engine, grid: new Grid(db), timeZone, version: "0.0.1" }).listen(port, () => {
-  console.log(`PimsRadio listening on :${port}`);
+createApi({ engine, grid: new Grid(db), timeZone, version: "0.0.1" }).listen(port, httpConfig.host, () => {
+  console.log(`PimsRadio listening on ${httpConfig.host}:${port}`);
 });

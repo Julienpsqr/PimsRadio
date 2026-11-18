@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ConfigError, isLoopbackHost, readEngineConfig } from "./config.js";
+import { ConfigError, isLoopbackHost, readEngineConfig, readHttpConfig } from "./config.js";
 
 const ls = (env: Record<string, string>) => readEngineConfig({ PIMSRADIO_ENGINE: "liquidsoap", ...env });
 
@@ -53,4 +53,20 @@ test("loopback detection does not take look-alikes for loopback", () => {
   for (const h of ["128.0.0.1", "1127.0.0.1", "localhost.example.org", "0.0.0.0", "::", "::2", "liquidsoap", "127.0.0.1.evil.org", "10.0.0.1"]) {
     assert.equal(isLoopbackHost(h), false, h);
   }
+});
+
+test("interface host: loopback by default, non-loopback refused unless PIMSRADIO_ALLOW_REMOTE_UI=1", () => {
+  assert.deepEqual(readHttpConfig({}), { host: "127.0.0.1", warnings: [] });
+  assert.equal(readHttpConfig({ PIMSRADIO_HOST: "::1" }).host, "::1");
+  assert.equal(readHttpConfig({ PIMSRADIO_HOST: "localhost" }).warnings.length, 0);
+  for (const env of [
+    { PIMSRADIO_HOST: "0.0.0.0" }, { PIMSRADIO_HOST: "192.168.1.5", PIMSRADIO_ALLOW_REMOTE_UI: "0" },
+    { PIMSRADIO_HOST: "0.0.0.0", PIMSRADIO_ALLOW_REMOTE_UI: "true" },
+    { PIMSRADIO_HOST: "" }, { PIMSRADIO_HOST: "bad host" }, { PIMSRADIO_HOST: "a\nb" },
+  ]) {
+    assert.throws(() => readHttpConfig(env), ConfigError, JSON.stringify(env));
+  }
+  const ok = readHttpConfig({ PIMSRADIO_HOST: "0.0.0.0", PIMSRADIO_ALLOW_REMOTE_UI: "1" });
+  assert.equal(ok.host, "0.0.0.0");
+  assert.equal(ok.warnings.length, 1);
 });

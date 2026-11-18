@@ -100,7 +100,7 @@ Variables d'environnement :
 - `PIMSRADIO_LS_HOST` (défaut `127.0.0.1`), `PIMSRADIO_LS_PORT` (défaut `1234`) ;
 - `PIMSRADIO_MEDIA_ROOT` (racine côté contrôle) et `PIMSRADIO_LS_MEDIA_ROOT` (même racine vue par le moteur ; défaut = identique).
 
-Valeurs invalides (port non entier ou hors 1-65535, hôte vide, valeur de `PIMSRADIO_ENGINE` inconnue) : arrêt immédiat au démarrage avec un message clair (c'est une erreur de configuration, pas une panne du moteur). Hôte non loopback : avertissement dans le journal (« telnet sans authentification : ne doit jamais traverser un réseau non fiable »), mais accepté, car en compose le plan de contrôle joint le moteur par le nom du service. Sans configuration, `main.ts` se comporte comme aujourd'hui (FakeEngine, démo).
+Valeurs invalides (port non entier ou hors 1-65535, hôte vide, valeur de `PIMSRADIO_ENGINE` inconnue) : arrêt immédiat au démarrage avec un message clair (c'est une erreur de configuration, pas une panne du moteur). Un `PIMSRADIO_ENGINE=` vide est refusé (valeur inconnue). Hôte telnet non loopback : démarrage REFUSÉ sauf `PIMSRADIO_LS_ALLOW_REMOTE=1` (cohérent avec l'ADR 0006) ; avec ce réglage, un avertissement (« telnet sans authentification : ne doit jamais traverser un réseau non fiable ») est écrit, ce qui permet le compose où le plan de contrôle joint le moteur par le nom du service. Sans configuration, `main.ts` se comporte comme aujourd'hui (FakeEngine, démo).
 
 ## 3. Critères d'acceptation
 

@@ -11,6 +11,8 @@ Le plan de contrôle pousse les morceaux dans Liquidsoap par un client telnet in
 | `PIMSRADIO_MEDIA_ROOT` | `/media` | Dossier des médias vu par PimsRadio. |
 | `PIMSRADIO_LS_MEDIA_ROOT` | identique | Le même dossier vu par Liquidsoap (volume Docker monté ailleurs). |
 | `PIMSRADIO_LS_ALLOW_REMOTE` | absent | `1` pour autoriser un hôte telnet qui n'est pas en boucle locale (voir ci-dessous). |
+| `PIMSRADIO_HOST` | `127.0.0.1` | Adresse d'écoute de l'interface HTTP (ADR 0006). Hôte non loopback : démarrage refusé sauf `PIMSRADIO_ALLOW_REMOTE_UI=1`. |
+| `PIMSRADIO_ALLOW_REMOTE_UI` | absent | `1` pour autoriser une adresse d'écoute non loopback. Docker : dans le conteneur, `PIMSRADIO_HOST=0.0.0.0` avec ce réglage, et publier le port côté compose sur `127.0.0.1:8080:8080`. |
 
 Sans variable, PimsRadio démarre avec le faux moteur, comme avant. Une valeur invalide arrête le démarrage avec un message clair (erreur de configuration, pas une panne du moteur). Le démarrage ne dépend jamais de la disponibilité de Liquidsoap : la connexion se fait en tâche de fond.
 
