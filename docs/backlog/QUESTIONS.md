@@ -41,6 +41,13 @@ Contexte : l'interface doit être utilisable hors du studio (bénévoles, télé
 Options : A VPN/tunnel au choix de la radio, documentation seulement (zéro dépendance, mais barrière pour les bénévoles) ; B (recommandée) reverse proxy HTTPS optionnel dans le compose (Caddy, Apache-2.0 à confirmer ; désactivé par défaut, nécessite un nom de domaine et les ports 80/443) + A documenté pour qui n'a pas d'IP publique ; C accès direct de l'interface sur Internet sans proxy (rejeté : pas de HTTPS).
 Questions : A, B ou les deux ? 2FA TOTP obligatoire pour admin dès l'accès distant (recommandé) : d'accord ? Un tunnel tiers (service externe) est-il acceptable en simple option documentée ?
 
+## Q7 (021, PLAN Q6) Modèles d'IA intégrés : quoi, où, avec quelles données ?
+Contexte : 011 (MCP) = une IA externe pilote PimsRadio. 021 = PimsRadio appelle un modèle. Aucune fonction essentielle ni l'antenne n'en dépendent ; sans modèle, tout fonctionne. Une ADR est proposée (« 0007 — Fournisseurs de modèles d'IA et protection des données »).
+- Q7a Quelles fonctions IA veux-tu en premier ? Recommandé (brouillon, hors antenne, sans donnée personnelle) : aide à la grille, résumé/bilan, suggestion de métadonnées. Plus tard : voice-tracking (TTS), transcription, assistant dans l'interface.
+- Q7b Le modèle local (Ollama, LM Studio) est-il une priorité pour la souveraineté des radios ? Recommandé : oui, via le même adaptateur « compatible OpenAI » (aucun surcoût), poids jamais embarqués, avec option « modèle local uniquement ».
+- Q7c Politique par défaut sur les données envoyées ? Option A (recommandée) : désactivé par défaut ; à l'activation d'un service tiers, seules les métadonnées de bibliothèque et de grille peuvent partir, avec avertissement et liste visible ; jamais de données personnelles ni d'identifiants. Option B : modèle local uniquement tant que l'admin n'a pas explicitement autorisé un service tiers (plus strict). Option C : tout autoriser (rejetée).
+- Q7d Fournisseurs : accepter un jeu minimal (API compatible OpenAI + Anthropic natif plus tard) sans SDK ? Plafond de coût par défaut (ex. faible, configurable) ?
+
 ## Réponses en attente (2026-11-18)
 Julien n'a pas encore les informations pour Q2 (état de l'émetteur) ni Q4 (déclarations de droits). Ces deux idées (017c, 018b) sont **mises en attente** dans le backlog (statut `blocked`) et reprises quand une radio pilote pourra fournir : la liste des sociétés payées, un exemple de déclaration réelle anonymisé avec la spécification officielle, et ce que son émetteur expose.
 
