@@ -439,8 +439,9 @@ async function engineScenario(): Promise<void> {
   await sleep(13_000);
 
   // 21: control plane restart with a long track playing and three waiting
+  await waitUntil(async () => (await engine.state()).source === "fallback", 25_000); // the previous tracks are done
   await engine.push(long);
-  await waitUntil(isAuto, 12_000);
+  await waitUntil(async () => (await engine.state()).current?.title === "Tone Long", 12_000);
   await sleep(3000);
   await engine.push(q);
   await engine.push(q2);
