@@ -1,0 +1,372 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette PimsRadio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Concept : console de studio sobre. Gris, coins carrés, un seul bloc de texte géant pour l'état d'antenne. */
+:root {
+  --bg: #f4f4f3; --surface: #ffffff; --surface-2: #ececeb; --line: #d4d4d2; --fg: #1a1a19; --muted: #5c5c59;
+  --inv-bg: #1a1a19; --inv-fg: #f4f4f3; --ok: #3f5a48; --warn: #8a5a1c; --bad: #7a3f3f; --focus: #1a1a19;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #141413; --surface: #1d1d1c; --surface-2: #272726; --line: #3a3a38; --fg: #ecece9; --muted: #a8a8a4;
+    --inv-bg: #ecece9; --inv-fg: #141413; --ok: #a9c2b0; --warn: #d9b27a; --bad: #d6a8a8; --focus: #ecece9; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #141413; --surface: #1d1d1c; --surface-2: #272726; --line: #3a3a38; --fg: #ecece9; --muted: #a8a8a4;
+  --inv-bg: #ecece9; --inv-fg: #141413; --ok: #a9c2b0; --warn: #d9b27a; --bad: #d6a8a8; --focus: #ecece9; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.5; margin: 0; }
+button, input, select { font: inherit; color: inherit; border-radius: 0; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: square; stroke-linejoin: miter; flex: none; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+/* ----- structure ----- */
+.shell { min-height: 100vh; display: block; }
+.nav { position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; display: flex; background: var(--surface); border-top: 1px solid var(--line);
+  padding: 0 max(0px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(0px, env(safe-area-inset-left, 0px)); }
+.brand { display: none; }
+.nav button { flex: 1; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: none; border: 0; color: var(--muted); font-size: 11px; padding: 4px 2px; }
+.nav button[aria-current="page"] { color: var(--fg); font-weight: 650; box-shadow: inset 0 3px 0 var(--fg); }
+.main { padding: 16px max(16px, env(safe-area-inset-right, 0px)) 96px max(16px, env(safe-area-inset-left, 0px)); max-width: 1080px; }
+.tag-demo { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); border: 1px dashed var(--line); padding: 6px 10px; margin-bottom: 16px; }
+.tag-demo button { border: 1px solid var(--line); background: var(--surface); padding: 2px 10px; min-height: 28px; }
+.tag-demo button[aria-pressed="true"] { background: var(--inv-bg); color: var(--inv-fg); border-color: var(--inv-bg); }
+h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 15px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 16px; min-width: 0; }
+.grid2 { display: grid; gap: 16px; grid-template-columns: 1fr; }
+.btn { border: 1px solid var(--fg); background: var(--surface); padding: 8px 14px; min-height: 44px; font-weight: 600; }
+.btn.primary { background: var(--inv-bg); color: var(--inv-fg); }
+.btn.quiet { border-color: var(--line); font-weight: 500; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-block; border: 1px solid var(--line); padding: 0 8px; font-size: 12px; white-space: nowrap; }
+.pill.ok { color: var(--ok); border-color: var(--ok); } .pill.warn { color: var(--warn); border-color: var(--warn); } .pill.bad { color: var(--bad); border-color: var(--bad); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+input[type=text], input[type=url], input[type=search], select { background: var(--surface); border: 1px solid var(--line); padding: 8px 10px; min-height: 44px; width: 100%; }
+label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.check { display: flex; gap: 10px; align-items: flex-start; color: var(--fg); font-size: 14px; }
+.check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--fg); }
+.empty { border: 1px dashed var(--line); padding: 20px; color: var(--muted); text-align: center; }
+details.fold { border: 1px solid var(--line); background: var(--surface); }
+details.fold > summary { padding: 10px 14px; cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+details.fold > div { padding: 0 14px 14px; }
+
+/* ----- antenne ----- */
+.onair { background: var(--inv-bg); color: var(--inv-fg); padding: 18px 20px; display: grid; gap: 4px; }
+.onair .big { font-size: clamp(34px, 9vw, 60px); font-weight: 800; letter-spacing: 0.02em; line-height: 1.05; }
+.onair .sub { font-size: 14px; opacity: 0.85; }
+.onair[data-s="secours"] { outline: 4px solid var(--bad); outline-offset: -4px; }
+.now .title { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.progress { height: 8px; background: var(--surface-2); border: 1px solid var(--line); margin: 14px 0 4px; }
+.progress > div { height: 100%; background: var(--fg); width: 0; }
+.meter { display: flex; gap: 3px; align-items: flex-end; height: 44px; }
+.meter i { flex: 1; background: var(--fg); min-height: 3px; }
+.q { list-style: none; margin: 0; padding: 0; display: grid; }
+.q li { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.outs { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.outs > div { border: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 2px; background: var(--surface); }
+.confirm { margin-top: 10px; border: 1px solid var(--fg); padding: 10px 12px; }
+
+/* ----- grille ----- */
+.daytabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.daytabs button { border: 1px solid var(--line); background: var(--surface); min-height: 44px; min-width: 44px; padding: 0 10px; }
+.daytabs button[aria-pressed="true"] { background: var(--inv-bg); color: var(--inv-fg); border-color: var(--inv-bg); }
+.week { display: grid; grid-template-columns: 36px 1fr; gap: 0; }
+.hours { position: relative; height: 684px; }
+.hours span { position: absolute; right: 6px; font-size: 11px; color: var(--muted); transform: translateY(-50%); }
+.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.day { position: relative; height: 684px; border-left: 1px solid var(--line);
+  background: repeating-linear-gradient(to bottom, transparent 0 37px, var(--line) 37px 38px); display: none; min-width: 0; }
+.day.sel { display: block; }
+.day h3 { position: absolute; top: -26px; left: 6px; margin: 0; font-size: 13px; }
+.slot { position: absolute; left: 3px; right: 3px; padding: 3px 6px; font-size: 12px; line-height: 1.25; overflow: hidden; border: 1px solid var(--fg); background: var(--surface); }
+.slot b { display: block; font-size: 10px; letter-spacing: 0.08em; }
+.slot.rot { background: var(--surface-2); border-color: var(--line); }
+.slot.flux { background: repeating-linear-gradient(135deg, var(--surface) 0 6px, var(--surface-2) 6px 12px); }
+.slot.live { background: var(--inv-bg); color: var(--inv-fg); }
+.slot.draft { border-style: dashed; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin: 8px 0 0; }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 18px; height: 12px; border: 1px solid var(--fg); display: inline-block; }
+.gridscroll { padding-top: 28px; }
+
+/* ----- assistant ----- */
+.chat { display: grid; gap: 12px; }
+.msg { padding: 10px 14px; border: 1px solid var(--line); max-width: 640px; background: var(--surface); }
+.msg.me { justify-self: end; background: var(--surface-2); }
+.draftbox { border: 2px dashed var(--fg); padding: 12px 14px; background: var(--surface); }
+.levels { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.levels > div { border: 1px solid var(--line); padding: 10px 12px; background: var(--surface); font-size: 13px; }
+
+@media (min-width: 900px) {
+  .shell { display: grid; grid-template-columns: 232px 1fr; }
+  .nav { position: sticky; top: 0; height: 100vh; flex-direction: column; border-top: 0; border-right: 1px solid var(--line); padding: 16px 0 16px env(safe-area-inset-left, 0px); align-self: start; }
+  .brand { display: block; padding: 4px 20px 16px; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
+  .brand small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); letter-spacing: 0; }
+  .nav button { flex: 0 0 auto; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 10px 20px; font-size: 15px; min-height: 46px; }
+  .nav button[aria-current="page"] { box-shadow: inset 4px 0 0 var(--fg); background: var(--surface-2); }
+  .main { padding-bottom: 40px; }
+  .grid2 { grid-template-columns: 3fr 2fr; }
+  .day { display: block; } .daytabs { display: none; }
+  .hours { height: 684px; }
+}
+@media (prefers-reduced-motion: no-preference) { .progress > div { transition: width 0.9s linear; } .onair { transition: background 0.2s; } }
+</style>
+
+<div class="shell">
+  <nav class="nav" aria-label="Navigation principale" id="nav">
+    <div class="brand">PimsRadio<small>Radio Exemple · 94.2 FM</small></div>
+  </nav>
+  <main class="main">
+    <div class="tag-demo" role="group" aria-label="Contrôles de démonstration">
+      <b>Maquette, données fictives.</b> Essaie l'état de l'antenne :
+      <button data-sim="auto" aria-pressed="true">Auto</button><button data-sim="direct" aria-pressed="false">Direct</button><button data-sim="flux" aria-pressed="false">Flux externe</button><button data-sim="secours" aria-pressed="false">Secours</button>
+      <button id="theme" style="margin-left:auto">Thème : auto</button>
+    </div>
+
+    <!-- ANTENNE -->
+    <section id="s-antenne">
+      <div class="head"><h1>Antenne</h1><span class="muted mono" id="clock">--:--:--</span></div>
+      <div class="onair" id="onair" data-s="auto" role="status" aria-live="polite"><div class="big" id="onairBig">AUTO</div><div class="sub" id="onairSub">Programmation automatique · Rotation Musique du matin</div></div>
+      <div class="grid2" style="margin-top:16px">
+        <div style="display:grid;gap:16px">
+          <div class="card now">
+            <h2>En cours</h2>
+            <div class="title" id="trTitle">Le Sud</div>
+            <div class="muted" id="trArtist">Nino Ferrer · Chanson française</div>
+            <div class="progress" role="progressbar" aria-label="Avancement du titre" aria-valuemin="0" aria-valuemax="100" id="pg"><div id="pgbar"></div></div>
+            <div class="row" style="justify-content:space-between"><span class="mono muted" id="pgTime">1:12</span><span class="mono muted" id="pgLeft">-2:48</span></div>
+            <div class="row" style="margin-top:14px">
+              <button class="btn primary" id="goLive">Passer en direct</button>
+              <button class="btn quiet" id="skip">Titre suivant</button>
+            </div>
+            <div class="confirm" id="liveConfirm" hidden>
+              <div><b>Passer en direct ?</b> La musique se fond dans l'entrée studio. Tu pourras rendre l'antenne à tout moment.</div>
+              <div class="row" style="margin-top:10px"><button class="btn primary" id="liveYes">Oui, passer en direct</button><button class="btn quiet" id="liveNo">Annuler</button></div>
+            </div>
+          </div>
+          <div class="card"><h2>Ensuite</h2>
+            <ul class="q" id="queue"></ul>
+          </div>
+        </div>
+        <div style="display:grid;gap:16px;align-content:start">
+          <div class="card"><h2>Niveau audio</h2><div class="meter" id="meter" aria-hidden="true"></div><div class="muted" style="font-size:12px;margin-top:6px">Aucun silence détecté depuis 14 j 3 h</div></div>
+          <div class="card"><h2>Sorties</h2>
+            <div class="outs">
+              <div><b>Web</b><span class="pill ok">En ligne</span><span class="muted" style="font-size:12px">42 auditeurs · MP3 128 k</span></div>
+              <div><b>FM + RDS</b><span class="pill ok">En ligne</span><span class="muted" style="font-size:12px">94.2 · « RADIO EXEMPLE »</span></div>
+              <div><b>DAB+</b><span class="pill warn">Retard 2 s</span><span class="muted" style="font-size:12px">Livraison à l'opérateur</span></div>
+            </div>
+          </div>
+          <div class="card"><h2>Prochain créneau</h2><b>18:00 · Flux : Radio Partenaire</b><div class="muted" style="font-size:13px">Bascule avec fondu, repli sur la playlist « Jazz du soir » si le flux tombe.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GRILLE -->
+    <section id="s-grille" hidden>
+      <div class="head"><div><h1>Grille de la semaine</h1><div class="muted">Fuseau Europe/Paris</div></div>
+        <div class="row"><span class="pill warn">2 changements en brouillon</span><button class="btn primary" id="publish">Publier la grille</button></div></div>
+      <div class="daytabs" id="daytabs" role="group" aria-label="Choisir le jour"></div>
+      <div class="card gridscroll"><div class="week"><div class="hours" id="hours"></div><div class="days" id="days"></div></div>
+        <div class="legend"><span><i style="background:var(--surface-2);border-color:var(--line)"></i>Rotation</span><span><i></i>Playlist</span><span><i style="background:repeating-linear-gradient(135deg,var(--surface) 0 3px,var(--surface-2) 3px 6px)"></i>Flux externe</span><span><i style="background:var(--inv-bg)"></i>Direct</span><span><i style="border-style:dashed"></i>Brouillon</span></div>
+      </div>
+      <p class="muted" id="pubmsg" role="status"></p>
+    </section>
+
+    <!-- BIBLIOTHEQUE -->
+    <section id="s-biblio" hidden>
+      <div class="head"><h1>Bibliothèque</h1><span class="muted">1 284 titres · 38 jingles · 12 émissions</span></div>
+      <div class="card" style="margin-bottom:16px"><div class="empty"><b>Dépose tes fichiers ici</b><br>MP3, FLAC, OGG, WAV. Le niveau sonore est analysé automatiquement.<br><button class="btn" style="margin-top:10px">Choisir des fichiers</button></div></div>
+      <div class="row" style="margin-bottom:10px"><div style="flex:1;min-width:200px"><input type="search" id="q" placeholder="Rechercher un titre ou un artiste" aria-label="Rechercher"></div>
+        <select id="kind" style="width:auto" aria-label="Catégorie"><option value="">Toutes catégories</option><option>Musique</option><option>Jingle</option><option>Sponsor</option><option>Émission</option></select></div>
+      <div class="card tablewrap"><table><thead><tr><th>Titre</th><th>Artiste</th><th>Catégorie</th><th>Durée</th><th>Niveau</th></tr></thead><tbody id="tracks"></tbody></table></div>
+    </section>
+
+    <!-- FLUX -->
+    <section id="s-flux" hidden>
+      <div class="head"><div><h1>Flux externes</h1><div class="muted">Des sources comme les autres : planifiables dans la grille, avec repli automatique.</div></div></div>
+      <div class="grid2">
+        <div class="card tablewrap"><table><thead><tr><th>Nom</th><th>État</th><th>Latence</th><th>Utilisé</th></tr></thead><tbody id="streams"></tbody></table></div>
+        <div class="card"><h2>Ajouter un flux</h2>
+          <form id="fform" style="display:grid;gap:12px">
+            <label for="fname">Nom<input id="fname" type="text" placeholder="Radio Partenaire"></label>
+            <label for="furl">Adresse du flux<input id="furl" type="url" placeholder="https://exemple.org/flux.mp3"></label>
+            <label class="check" for="fok" style="font-size:14px"><input type="checkbox" id="fok"> <span>Je confirme avoir l'autorisation de relayer ce flux.</span></label>
+            <div class="row"><button type="button" class="btn quiet" id="ftest">Tester</button><button type="submit" class="btn primary">Ajouter</button></div>
+            <div id="fmsg" class="muted" role="status"></div>
+          </form></div>
+      </div>
+    </section>
+
+    <!-- JOURNAL -->
+    <section id="s-journal" hidden>
+      <div class="head"><h1>Journal et conformité</h1><button class="btn">Exporter le relevé du mois</button></div>
+      <div class="grid2">
+        <div class="card"><h2>Quotas du mois</h2>
+          <div style="display:grid;gap:12px">
+            <div><div class="row" style="justify-content:space-between"><b>Chanson francophone</b><span class="pill ok">Objectif atteint</span></div><div class="progress"><div style="width:82%"></div></div><div class="muted" style="font-size:13px">41 % diffusés · objectif 40 %</div></div>
+            <div><div class="row" style="justify-content:space-between"><b>Enregistrement conservé</b><span class="pill ok">90 jours</span></div><div class="muted" style="font-size:13px">Du 19 août au 18 novembre · 1,8 To</div></div>
+          </div>
+          <p class="muted" style="font-size:12px">Valeurs d'exemple. Les obligations réelles dépendent de la convention de la radio.</p></div>
+        <div class="card"><h2>Diffusions récentes</h2>
+          <div class="tablewrap"><table><thead><tr><th>Heure</th><th>Titre</th><th>Origine</th></tr></thead><tbody id="log"></tbody></table></div></div>
+      </div>
+    </section>
+
+    <!-- ASSISTANT -->
+    <section id="s-assistant" hidden>
+      <div class="head"><div><h1>Assistant</h1><div class="muted">Pilote la radio avec une IA (MCP), sans jamais toucher l'antenne sans ton accord.</div></div></div>
+      <div class="grid2">
+        <div class="card chat">
+          <div class="msg me">Mets une grille musicale mercredi de 14 h à 16 h, avec 40 % de chanson française et un jingle toutes les 4 chansons.</div>
+          <div class="msg"><b>J'ai préparé un brouillon.</b> Rien n'est à l'antenne.
+            <div class="draftbox" style="margin-top:10px">
+              <b>Mercredi 14:00 – 16:00 · Rotation « Après-midi »</b>
+              <ul style="margin:6px 0 0;padding-left:18px"><li>40 % de chanson française</li><li>Jingle toutes les 4 chansons</li><li>Pas de répétition d'un artiste avant 60 min</li></ul>
+            </div>
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="adoptDraft">Ajouter à la grille (brouillon)</button><button class="btn quiet">Modifier</button></div>
+            <div class="muted" id="adoptMsg" style="margin-top:8px" role="status"></div>
+          </div>
+        </div>
+        <div style="display:grid;gap:16px;align-content:start">
+          <div class="card"><h2>Ce que l'assistant peut faire</h2>
+            <div class="levels"><div><b>Lire</b><br>Titre en cours, grille, journal, santé des flux. Libre.</div><div><b>Préparer</b><br>Brouillons de grille ou de playlist. Aucun effet à l'antenne.</div><div><b>Agir à l'antenne</b><br>Passer en direct, changer de source… Demande ta validation et laisse une trace.</div></div></div>
+          <div class="card"><h2>Dernières actions</h2><ul class="q"><li><span class="mono muted">11:02</span><span>Lecture du journal d'hier</span><span class="pill">Lecture</span></li><li><span class="mono muted">10:48</span><span>Brouillon « Jazz du soir »</span><span class="pill">Brouillon</span></li><li><span class="mono muted">09:15</span><span>Bascule vers Radio Partenaire (validée par Camille)</span><span class="pill warn">Antenne</span></li></ul></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const ICONS = {
+  antenne: '<path d="M4 12a8 8 0 0 1 16 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0"/><circle cx="12" cy="12" r="1.5"/><path d="M12 14v7"/>',
+  grille: '<rect x="3" y="4" width="18" height="17"/><path d="M3 9h18M9 4v17M15 4v17"/>',
+  biblio: '<path d="M4 4v16M9 4v16M14 6l5 13"/>',
+  flux: '<path d="M4 8c4-4 12-4 16 0M7 12c3-3 7-3 10 0M10 16c1.2-1 2.8-1 4 0"/><circle cx="12" cy="19" r="1"/>',
+  journal: '<path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+  assistant: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8"/>'
+};
+const SCREENS = [['antenne','Antenne'],['grille','Grille'],['biblio','Biblio.'],['flux','Flux'],['journal','Journal'],['assistant','Assistant']];
+const nav = document.getElementById('nav');
+SCREENS.forEach(([id, label], i) => {
+  const b = document.createElement('button');
+  b.dataset.s = id; if (i === 0) b.setAttribute('aria-current', 'page');
+  b.innerHTML = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + ICONS[id] + '</svg><span>' + label + '</span>';
+  b.onclick = () => show(id);
+  nav.appendChild(b);
+});
+function show(id) {
+  SCREENS.forEach(([s]) => { document.getElementById('s-' + s).hidden = s !== id; });
+  nav.querySelectorAll('button').forEach(b => b.toggleAttribute('aria-current', b.dataset.s === id));
+  nav.querySelectorAll('button').forEach(b => { if (b.dataset.s === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  try { history.replaceState(null, '', '#' + id); } catch (e) {}
+  window.scrollTo(0, 0);
+}
+const hash = (location.hash || '').slice(1); if (SCREENS.some(([s]) => s === hash)) show(hash);
+
+/* ---- horloge et titre en cours ---- */
+const pad = n => String(n).padStart(2, '0');
+setInterval(() => { const d = new Date(); document.getElementById('clock').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }, 1000);
+const TRACKS = [
+  ['Le Sud','Nino Ferrer','Musique','4:00','-14 LUFS'],['La Bohème','Charles Aznavour','Musique','4:07','-15 LUFS'],['Dream a Little Dream','Ella Fitzgerald','Musique','3:21','-16 LUFS'],
+  ['Heroes','David Bowie','Musique','6:07','-13 LUFS'],['Jingle matin n°3','Habillage','Jingle','0:06','-14 LUFS'],['Sponsor : boulangerie Dupont','Spot 20 s','Sponsor','0:20','-14 LUFS'],
+  ['Les Mots bleus','Christophe','Musique','3:31','-15 LUFS'],['Émission « Jazz au lycée » (rediffusion)','Atelier jeunes','Émission','52:10','-18 LUFS']];
+const QUEUE = [['4:07','La Bohème','Charles Aznavour'],['0:06','Jingle matin n°3','Habillage'],['3:31','Les Mots bleus','Christophe'],['3:21','Dream a Little Dream','Ella Fitzgerald']];
+const q = document.getElementById('queue');
+QUEUE.forEach(([d, t, a], i) => { const li = document.createElement('li'); li.innerHTML = '<span class="mono muted">' + d + '</span><span><b></b> <span class="muted"></span></span><span class="mono muted">' + ('11:' + pad(14 + i * 4)) + '</span>'; li.querySelector('b').textContent = t; li.querySelector('.muted:not(.mono)').textContent = '· ' + a; q.appendChild(li); });
+let sec = 72; const total = 240;
+setInterval(() => {
+  sec = (sec + 1) % total;
+  document.getElementById('pgbar').style.width = (sec / total * 100) + '%';
+  document.getElementById('pg').setAttribute('aria-valuenow', Math.round(sec / total * 100));
+  document.getElementById('pgTime').textContent = Math.floor(sec / 60) + ':' + pad(sec % 60);
+  const left = total - sec; document.getElementById('pgLeft').textContent = '-' + Math.floor(left / 60) + ':' + pad(left % 60);
+}, 1000);
+const meter = document.getElementById('meter'); for (let i = 0; i < 28; i++) meter.appendChild(document.createElement('i'));
+setInterval(() => { [...meter.children].forEach((b, i) => { b.style.height = (12 + Math.abs(Math.sin(Date.now() / 400 + i * 0.7)) * 70 + Math.random() * 14) + '%'; }); }, 160);
+
+/* ---- états d'antenne ---- */
+const STATES = {
+  auto: ['AUTO', 'Programmation automatique · Rotation Musique du matin'],
+  direct: ['EN DIRECT', 'Studio A · Camille · « Le Matin des associations »'],
+  flux: ['FLUX EXTERNE', 'Relais de Radio Partenaire · repli prévu sur « Jazz du soir »'],
+  secours: ['SECOURS', 'La source prévue ne répond plus. Dossier de secours en lecture, aucun silence.']
+};
+function setState(k) {
+  const o = document.getElementById('onair'); o.dataset.s = k;
+  document.getElementById('onairBig').textContent = STATES[k][0]; document.getElementById('onairSub').textContent = STATES[k][1];
+  document.querySelectorAll('[data-sim]').forEach(b => b.setAttribute('aria-pressed', b.dataset.sim === k ? 'true' : 'false'));
+  document.getElementById('goLive').textContent = k === 'direct' ? "Rendre l'antenne" : 'Passer en direct';
+}
+document.querySelectorAll('[data-sim]').forEach(b => b.onclick = () => setState(b.dataset.sim));
+const lc = document.getElementById('liveConfirm');
+document.getElementById('goLive').onclick = () => { if (document.getElementById('onair').dataset.s === 'direct') setState('auto'); else lc.hidden = false; };
+document.getElementById('liveNo').onclick = () => lc.hidden = true;
+document.getElementById('liveYes').onclick = () => { lc.hidden = true; setState('direct'); };
+document.getElementById('skip').onclick = () => { sec = total - 3; };
+
+/* ---- thème ---- */
+const modes = ['auto', 'light', 'dark']; let mi = 0;
+document.getElementById('theme').onclick = (e) => { mi = (mi + 1) % 3; const m = modes[mi]; if (m === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', m); e.target.textContent = 'Thème : ' + ['auto', 'clair', 'sombre'][mi]; };
+
+/* ---- grille ---- */
+const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']; const H0 = 6, H1 = 24, PX = 38;
+const hours = document.getElementById('hours'); for (let h = H0; h <= H1; h += 2) { const s = document.createElement('span'); s.style.top = ((h - H0) * PX) + 'px'; s.textContent = pad(h % 24) + 'h'; hours.appendChild(s); }
+const SLOTS = (d) => [
+  [6, 9, 'rot', 'Rotation', 'Réveil musical'], [9, 12, d === 2 ? 'live' : 'rot', d === 2 ? 'Direct' : 'Rotation', d === 2 ? 'Le Matin des associations' : 'Musique du matin'],
+  [12, 14, 'pl', 'Playlist', 'Midi chanson'], [14, 16, d === 2 ? 'rot draft' : 'rot', 'Rotation', d === 2 ? 'Après-midi (brouillon)' : 'Après-midi'],
+  [16, 18, d === 5 ? 'live' : 'rot', d === 5 ? 'Direct' : 'Rotation', d === 5 ? 'Radio-crochet' : 'Goûter musical'],
+  [18, 19, 'flux', 'Flux', 'Radio Partenaire'], [19, 22, 'pl', 'Playlist', 'Jazz du soir'], [22, 24, 'rot draft', 'Rotation', 'Nuit (brouillon)']
+].filter(s => !(d > 4 && s[0] === 6 && false));
+const days = document.getElementById('days'), tabs = document.getElementById('daytabs'); let selDay = 2;
+DAYS.forEach((n, d) => {
+  const col = document.createElement('div'); col.className = 'day' + (d === selDay ? ' sel' : ''); col.dataset.d = d;
+  const h = document.createElement('h3'); h.textContent = n; col.appendChild(h);
+  SLOTS(d).forEach(([a, b, k, kind, name]) => { const s = document.createElement('div'); s.className = 'slot ' + k; s.style.top = ((a - H0) * PX) + 'px'; s.style.height = ((b - a) * PX - 2) + 'px'; s.innerHTML = '<b></b><span></span>'; s.querySelector('b').textContent = kind.toUpperCase(); s.querySelector('span').textContent = name; col.appendChild(s); });
+  days.appendChild(col);
+  const t = document.createElement('button'); t.textContent = n; t.setAttribute('aria-pressed', d === selDay ? 'true' : 'false'); t.onclick = () => { selDay = d; days.querySelectorAll('.day').forEach(c => c.classList.toggle('sel', +c.dataset.d === d)); tabs.querySelectorAll('button').forEach((x, i) => x.setAttribute('aria-pressed', i === d ? 'true' : 'false')); }; tabs.appendChild(t);
+});
+document.getElementById('publish').onclick = () => { document.getElementById('pubmsg').textContent = 'Grille publiée. Le planificateur remplit la file des 30 prochaines minutes. (Maquette : rien n\'a été envoyé.)'; };
+
+/* ---- bibliothèque ---- */
+const tb = document.getElementById('tracks');
+function renderTracks() {
+  const f = document.getElementById('q').value.toLowerCase(), k = document.getElementById('kind').value; tb.replaceChildren();
+  const rows = TRACKS.filter(r => (!k || r[2] === k) && (r[0] + ' ' + r[1]).toLowerCase().includes(f));
+  if (!rows.length) { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 5; td.className = 'muted'; td.textContent = 'Aucun résultat. Essaie un autre mot ou une autre catégorie.'; tr.appendChild(td); tb.appendChild(tr); return; }
+  rows.forEach(r => { const tr = document.createElement('tr'); r.forEach((v, i) => { const td = document.createElement('td'); td.textContent = v; if (i >= 3) td.className = 'mono muted'; if (i === 2) { const p = document.createElement('span'); p.className = 'pill'; p.textContent = v; td.textContent = ''; td.appendChild(p); } tr.appendChild(td); }); tb.appendChild(tr); });
+}
+document.getElementById('q').oninput = renderTracks; document.getElementById('kind').onchange = renderTracks; renderTracks();
+
+/* ---- flux ---- */
+const STREAMS = [['Radio Partenaire', 'ok', 'En ligne', '120 ms', 'Dim. 18:00'], ['Programme réseau (info)', 'ok', 'En ligne', '210 ms', 'Chaque jour 7:00'], ['Concert en plein air', 'bad', 'Hors ligne', '—', 'Sam. 20:00'], ['Radio du lycée', 'warn', 'Instable', '640 ms', 'Mer. 12:00']];
+const st = document.getElementById('streams'); STREAMS.forEach(r => { const tr = document.createElement('tr'); const td1 = document.createElement('td'); td1.textContent = r[0]; const td2 = document.createElement('td'); const p = document.createElement('span'); p.className = 'pill ' + r[1]; p.textContent = r[2]; td2.appendChild(p); const td3 = document.createElement('td'); td3.className = 'mono muted'; td3.textContent = r[3]; const td4 = document.createElement('td'); td4.className = 'muted'; td4.textContent = r[4]; tr.append(td1, td2, td3, td4); st.appendChild(tr); });
+const fm = document.getElementById('fmsg');
+document.getElementById('ftest').onclick = () => { const u = document.getElementById('furl').value; fm.textContent = u ? 'Test en cours… le flux répond, 128 k MP3, 180 ms. (Simulé)' : 'Saisis d\'abord l\'adresse du flux.'; };
+document.getElementById('fform').onsubmit = (e) => { e.preventDefault(); const n = document.getElementById('fname').value.trim(), u = document.getElementById('furl').value.trim();
+  if (!n || !u) { fm.textContent = 'Donne un nom et une adresse au flux.'; return; }
+  if (!document.getElementById('fok').checked) { fm.textContent = 'Confirme d\'abord avoir l\'autorisation de relayer ce flux.'; return; }
+  fm.textContent = '« ' + n + ' » ajouté. Tu peux maintenant le placer dans la grille. (Maquette : rien n\'est enregistré.)'; };
+
+/* ---- journal ---- */
+const lg = document.getElementById('log'); [['11:10','Le Sud — Nino Ferrer','Auto'],['11:06','Jingle matin n°3','Auto'],['11:02','Heroes — David Bowie','Auto'],['10:56','Le Matin des associations','Direct'],['09:00','Programme réseau (info)','Flux']].forEach(r => { const tr = document.createElement('tr'); r.forEach((v, i) => { const td = document.createElement('td'); td.textContent = v; if (i === 0) td.className = 'mono muted'; tr.appendChild(td); }); lg.appendChild(tr); });
+
+/* ---- assistant ---- */
+document.getElementById('adoptDraft').onclick = () => { document.getElementById('adoptMsg').textContent = 'Ajouté à la grille en brouillon (mercredi 14 h – 16 h). Il passera à l\'antenne quand tu publieras la grille.'; };
+</script>
+
+</html>
