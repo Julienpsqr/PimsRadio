@@ -35,3 +35,5 @@ Question : A ou B, et quels serveurs réels ?
 
 ## Réponses en attente (2026-11-18)
 Julien n'a pas encore les informations pour Q2 (état de l'émetteur) ni Q4 (déclarations de droits). Ces deux idées (017c, 018b) sont **mises en attente** dans le backlog (statut `blocked`) et reprises quand une radio pilote pourra fournir : la liste des sociétés payées, un exemple de déclaration réelle anonymisé avec la spécification officielle, et ce que son émetteur expose.
+
+**Réponse de Julien à Q5 (2026-11-18) :** intégrer aussi WebDAV, S3 compatible et HTTP (pas seulement le dossier monté). 019c devient `accepted`, après 019a et 019b.
