@@ -45,3 +45,5 @@ Questions : A, B ou les deux ? 2FA TOTP obligatoire pour admin dès l'accès dis
 Julien n'a pas encore les informations pour Q2 (état de l'émetteur) ni Q4 (déclarations de droits). Ces deux idées (017c, 018b) sont **mises en attente** dans le backlog (statut `blocked`) et reprises quand une radio pilote pourra fournir : la liste des sociétés payées, un exemple de déclaration réelle anonymisé avec la spécification officielle, et ce que son émetteur expose.
 
 **Réponse de Julien à Q5 (2026-11-18) :** intégrer aussi WebDAV, S3 compatible et HTTP (pas seulement le dossier monté). 019c devient `accepted`, après 019a et 019b.
+
+**Réponses de Julien à Q6 (2026-11-18) :** accès distant par proxy HTTPS optionnel (désactivé par défaut) + VPN documenté ; TOTP obligatoire pour les admins dès que l'accès distant est actif. Voir ADR 0006.
