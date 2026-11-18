@@ -124,13 +124,21 @@ function acquireLock(): void {
   throw new EnvError("cannot acquire lock " + lockFile);
 }
 
+async function removeLabelled(): Promise<void> {
+  const ids = (await docker(["ps", "-aq", "--filter", `label=${LABEL}`])).out.split(/\s+/).filter(Boolean);
+  if (ids.length) await docker(["rm", "-f", ...ids]);
+}
+
 async function cleanup(): Promise<void> {
   if (cleaned) return;
   cleaned = true;
   if (!haveLock) return; // never touch the project of a concurrent run
+  // Order matters: the emitter container is outside the compose project but attached to its
+  // network, so it must go first or the network cannot be removed (QA-2).
+  await removeLabelled();
   await compose(["down", "-v", "--remove-orphans", "-t", "2"], 90_000);
-  const ids = (await docker(["ps", "-aq", "--filter", `label=${LABEL}`])).out.split(/\s+/).filter(Boolean);
-  if (ids.length) await docker(["rm", "-f", ...ids]);
+  await removeLabelled(); // an emitter started while we were tearing down
+  await docker(["network", "rm", `${PROJECT}_default`]); // no-op (error ignored) when compose already removed it
   if (ctx) rmSync(ctx.runDir, { recursive: true, force: true });
   if (haveLock) try { unlinkSync(lockFile); } catch { /* already gone */ }
 }
@@ -264,9 +272,16 @@ async function criterion1(): Promise<boolean> {
   const bad = await checkScript("/run/bad.liq");
   writeFileSync(join(c.runDir, "weird.liq"), generateScript(scriptConfig({ fallbackDir: '/media/we"ird\\dir with spaces' })));
   const weird = await checkScript("/run/weird.liq");
-  const ok = good.code === 0 && !noisy && bad.code !== 0 && weird.code === 0;
+  // QA-1: a value containing the interpolation `#{system(...)}` must stay literal when really executed.
+  const marker = "pwned-by-interpolation";
+  writeFileSync(join(c.runDir, "inject.liq"), `x = ${lqString(`a#{system("touch /run/${marker}")}b`)}
+print("RESULT=" ^ x)
+`);
+  const inj = await docker(["run", "--rm", "--label", LABEL, "-v", `${c.runDir}:/run`, c.lqImage, "/run/inject.liq"]);
+  const injectionSafe = inj.out.includes(`RESULT=a#{system("touch /run/${marker}")}b`) && !existsSync(join(c.runDir, marker));
+  const ok = good.code === 0 && !noisy && bad.code !== 0 && weird.code === 0 && injectionSafe;
   record(1, "script valid", ok,
-    `--check rc=${good.code}${noisy ? " (warnings in output: " + good.out.split("\n").filter((l) => /error|warning|unknown|deprecated/i.test(l)).slice(0, 2).join(" | ") + ")" : ""}; tampered script rc=${bad.code} (must be non-zero); path with quote/backslash rc=${weird.code}`);
+    `--check rc=${good.code}${noisy ? " (warnings in output: " + good.out.split("\n").filter((l) => /error|warning|unknown|deprecated/i.test(l)).slice(0, 2).join(" | ") + ")" : ""}; tampered script rc=${bad.code} (must be non-zero); path with quote/backslash rc=${weird.code}; #{system()} interpolation stays literal: ${injectionSafe}`);
   if (!ok) log(good.out.split("\n").filter((l) => !/\[(startup|main|sdl|video|audio)/.test(l)).slice(0, 15).join("\n"));
   return ok;
 }
