@@ -15,10 +15,14 @@ export interface LiquidsoapConfig {
   bitrateKbps: number;
 }
 
-/** Quote a value as a Liquidsoap string literal. */
+/**
+ * Quote a value as a Liquidsoap string literal. Liquidsoap 2.x evaluates `#{expr}` inside
+ * double quotes, so `{` after `#` is written as the escape `\x7b` (verified on v2.4.6: yields
+ * a literal `{`, nothing is evaluated).
+ */
 export function lqString(v: string): string {
   if (/[\u0000-\u001f]/.test(v)) throw new Error("control characters not allowed in script values");
-  return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/#\{/g, "#\\x7b")}"`;
 }
 
 /**
