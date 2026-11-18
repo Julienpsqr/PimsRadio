@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openDb } from "../db/db.js";
-import { FakeEngine } from "../engine/engine.js";
+import { EngineError, FakeEngine } from "../engine/engine.js";
 import { Library } from "../library/library.js";
 import { Grid } from "./grid.js";
 import { Planner } from "./planner.js";
@@ -22,8 +22,8 @@ test("fills the queue to the target and logs what it queued", async () => {
   const { db, engine, planner } = setup();
   const r = await planner.tick(now);
   assert.equal(r.pushed, 5); // 5 x 200 s >= 900 s
-  assert.equal(engine.queue.length, 5);
-  assert.equal(new Set(engine.queue.map((a) => a.id)).size, 5, "no repeat within the window");
+  assert.equal(engine.pushed.length, 5);
+  assert.equal(new Set(engine.pushed.map((a) => a.id)).size, 5, "no repeat within the window");
   assert.equal((db.prepare("SELECT COUNT(*) AS n FROM play_log").get() as { n: number }).n, 5);
   assert.equal((await planner.tick(now)).pushed, 0, "already full");
 });
@@ -42,11 +42,42 @@ test("a stream slot is not filled with music", async () => {
   grid.add({ weekday: 3, startMin: 0, endMin: 1440, kind: "stream", ref: "radio-x", state: "published" });
   const r = await planner.tick(now);
   assert.equal(r.pushed, 0);
-  assert.equal(engine.queue.length, 0);
+  assert.equal(engine.pushed.length, 0);
 });
 
-test("an unreachable engine raises instead of failing silently", async () => {
-  const { planner, engine } = setup();
+test("an unreachable engine ends the tick with a note, never an exception, and logs nothing", async () => {
+  const { db, planner, engine } = setup();
   engine.up = false;
-  await assert.rejects(planner.tick(now));
+  const r = await planner.tick(now);
+  assert.equal(r.pushed, 0);
+  assert.match(r.note ?? "", /^engine unreachable: unreachable/);
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM play_log").get() as { n: number }).n, 0);
+  engine.up = true;
+  assert.equal((await planner.tick(now)).pushed, 5, "the next tick works once the engine is back");
+});
+
+test("a failing push writes no play_log row and stops the tick", async () => {
+  const { db, planner, engine } = setup();
+  let calls = 0;
+  const realPush = engine.push.bind(engine);
+  engine.push = async (a) => {
+    if (++calls === 3) throw new EngineError("timeout", "slow", true);
+    return realPush(a);
+  };
+  const r = await planner.tick(now);
+  assert.equal(r.pushed, 2);
+  assert.match(r.note ?? "", /engine unreachable: timeout \(outcome of the last push unknown\)/);
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM play_log").get() as { n: number }).n, 2);
+});
+
+test("an engine that already holds enough audio makes the tick push nothing (control plane restart)", async () => {
+  const { planner, engine, lib } = setup();
+  for (const a of lib.list("music").slice(0, 5)) await engine.push(a); // 5 x 200 s already queued
+  assert.equal((await planner.tick(now)).pushed, 0);
+});
+
+test("errors that are not the engine's still surface", async () => {
+  const { planner, engine } = setup();
+  engine.queuedSeconds = async () => { throw new Error("bug"); };
+  await assert.rejects(planner.tick(now), /bug/);
 });

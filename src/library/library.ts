@@ -59,6 +59,12 @@ export class Library {
     return r ? fromRow(r) : null;
   }
 
+  /** Find an asset by its exact path (used to map engine requests back to the library). */
+  findByPath(path: string): Asset | undefined {
+    const r = this.db.prepare("SELECT * FROM asset WHERE path = ? ORDER BY id LIMIT 1").get(path) as Row | undefined;
+    return r ? fromRow(r) : undefined;
+  }
+
   /** List assets of a kind, optionally restricted to those carrying a tag. */
   list(kind: AssetKind, tag?: string): Asset[] {
     const rows = this.db.prepare("SELECT * FROM asset WHERE kind = ? ORDER BY id").all(kind) as unknown as Row[];

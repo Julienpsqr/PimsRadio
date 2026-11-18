@@ -9,3 +9,5 @@ Chaque choix structurant est écrit ici, une fois, avec sa raison. Pour changer 
 | 0003 | Licence AGPL-3.0 | acceptée |
 | 0004 | Projet autonome, public, sans dépendance à PimsWork | acceptée |
 | 0005 | Construire de zéro, pas d'extension d'un outil existant | acceptée |
+| 0006 | Modèle d'exposition réseau et d'authentification de l'accès distant | acceptée |
+| 0007 | Fournisseurs de modèles d'IA et protection des données | acceptée |

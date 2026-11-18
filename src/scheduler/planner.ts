@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { Db } from "../db/db.js";
-import type { AudioEngine } from "../engine/engine.js";
+import { type AudioEngine, EngineError } from "../engine/engine.js";
 import type { Library } from "../library/library.js";
 import { type Grid, resolveSlot } from "./grid.js";
 import { DEFAULT_RULES, type PlayedEntry, type RotationRules, pickNext } from "./rotation.js";
@@ -42,7 +42,23 @@ export class Planner {
     return rows.map((r) => ({ assetId: r.assetId, artist: r.artist, playedAt: new Date(r.startedAt) }));
   }
 
+  /**
+   * Never throws because of the engine (spec 001): an unreachable or confused engine ends the
+   * tick with a note, and the caller simply retries on its next tick. A push whose outcome is
+   * unknown stops the tick; the next one re-reads the real queue, which avoids duplicates.
+   */
   async tick(now: Date): Promise<TickResult> {
+    let pushed = 0;
+    try {
+      return await this.fill(now, (n) => { pushed = n; });
+    } catch (e) {
+      if (!(e instanceof EngineError)) throw e;
+      const what = e.code === "invalid_input" ? "engine rejected a track" : "engine unreachable";
+      return { pushed, note: `${what}: ${e.code}${e.maybeApplied ? " (outcome of the last push unknown)" : ""}` };
+    }
+  }
+
+  private async fill(now: Date, report: (pushed: number) => void): Promise<TickResult> {
     let ahead = await this.engine.queuedSeconds();
     let pushed = 0;
     const slots = this.grid.all();
@@ -62,6 +78,7 @@ export class Planner {
         .run(at.toISOString(), asset.id, slot?.id ?? null);
       ahead += asset.durationS;
       pushed++;
+      report(pushed);
     }
     return { pushed };
   }

@@ -11,7 +11,10 @@ import net from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { EngineError } from "../engine/engine.js";
 import { generateScript, lqString, type LiquidsoapConfig } from "../engine/liquidsoap.js";
+import { LiquidsoapEngine } from "../engine/liquidsoap-engine.js";
+import type { Asset } from "../library/library.js";
 import { analyze, countDominant, longestSilence, parseWav, type Window } from "./engine-test/analyze.js";
 
 const PROJECT = "pimsradio-test";
@@ -23,7 +26,7 @@ const BITRATE = 128;
 const BYTES_PER_SEC = (BITRATE * 1000) / 8;
 const FREQS = [440, 880, 1320] as const;
 const [F_FALLBACK, F_QUEUE, F_LIVE] = [0, 1, 2] as const;
-const GLOBAL_TIMEOUT_MS = 5 * 60_000;
+const GLOBAL_TIMEOUT_MS = 8 * 60_000;
 const SETTLE = 3; // seconds ignored after the start of a capture
 const MIN_FRACTION = 0.8;
 
@@ -304,6 +307,8 @@ output.file(%wav(channels=1, samplerate=8000), argv(2), s, fallible=true, on_sto
   const jobs: Array<[number, number, string]> = [
     [440, 20, "fallback/a.mp3"], [440, 20, "fallback/b.mp3"],
     [880, 8, "queue/q.mp3"], [880, 4, "queue/q2.mp3"], [880, 70, "queue/long.mp3"],
+    // spec 001: a name with spaces and a double quote, and two files for the concurrency check
+    [880, 6, 'queue/we ird "q" name.mp3'], [880, 5, "queue/c1.mp3"], [880, 5, "queue/c2.mp3"],
   ];
   const outs = await Promise.all(jobs.map(([f, d, n]) =>
     docker(["run", "--rm", "--label", LABEL, "-v", `${c.runDir}:/run`, c.lqImage, "/run/gen.liq", "--", String(f), String(d), `/run/media/${n}`])));
@@ -326,6 +331,210 @@ output.icecast(%mp3(bitrate=64), host="liquidsoap", port=8005, mount="live", pas
     "-v", `${c.runDir}:/run:ro`, c.lqImage, `/run/live${n}.liq`]);
   if (r.code !== 0) throw new Error("cannot start emitter: " + r.out.slice(-200));
   return name;
+}
+
+
+// ---------------------------------------------------------------- spec 001: LiquidsoapEngine against the real engine
+function e2eAsset(rel: string, title: string, durationS: number, id: number): Asset {
+  return {
+    id, kind: "music", path: join(ctx!.runDir, "media", rel), title, artist: "Test", durationS,
+    language: null, loudnessLufs: null, tags: [],
+  };
+}
+
+async function waitUntil(cond: () => Promise<boolean>, timeoutMs: number, stepMs = 400): Promise<number | undefined> {
+  const start = performance.now();
+  while (performance.now() - start < timeoutMs) {
+    if (await cond().catch(() => false)) return (performance.now() - start) / 1000;
+    await sleep(stepMs);
+  }
+  return undefined;
+}
+
+/** Run one criterion; an exception is a KO with its message, never a crash of the whole run. */
+async function guarded(id: number, name: string, fn: () => Promise<{ ok: boolean; detail: string }>): Promise<void> {
+  try {
+    const r = await fn();
+    record(id, name, r.ok, r.detail);
+  } catch (e) {
+    record(id, name, false, "exception: " + mask(e instanceof Error ? e.message : String(e)));
+  }
+}
+
+async function engineScenario(): Promise<void> {
+  const c = ctx!;
+  const mediaRoot = join(c.runDir, "media");
+  const assets = new Map<string, Asset>();
+  const reg = (a: Asset): Asset => { assets.set(a.path, a); return a; };
+  const q = reg(e2eAsset("queue/q.mp3", "Tone Q", 8, 101));
+  const q2 = reg(e2eAsset("queue/q2.mp3", "Tone Q2", 4, 102));
+  const long = reg(e2eAsset("queue/long.mp3", "Tone Long", 70, 103));
+  const weird = reg(e2eAsset('queue/we ird "q" name.mp3', 'Tone "weird" name', 6, 104));
+  const c1 = reg(e2eAsset("queue/c1.mp3", "Tone C1", 5, 105));
+  const c2 = reg(e2eAsset("queue/c2.mp3", "Tone C2", 5, 106));
+  const make = () => new LiquidsoapEngine({
+    host: "127.0.0.1", port: TELNET_PORT, mediaRoot, engineMediaRoot: "/media", resolve: (p) => assets.get(p),
+  });
+  let engine = make();
+  engine.start();
+  const isAuto = async () => (await engine.state()).source === "auto";
+
+  log("Engine client (spec 001):");
+  const ce = new Capture();
+  await ce.start();
+  await sleep(4000);
+
+  // 17 (first half) and 16: fallback state, push, queue
+  const st0 = await engine.state().catch((e: Error) => e);
+  const mP = ce.mark();
+  const pushQ = await engine.push(q).then(() => "ok", (e: Error) => e.message);
+  const tAuto = await waitUntil(isAuto, 12_000);
+  const stAuto = await engine.state().catch((e: Error) => e);
+  const pushQ2 = await engine.push(q2).then(() => "ok", (e: Error) => e.message);
+  const ahead = await engine.queuedSeconds().catch(() => NaN);
+  const nextUp = await engine.next().catch(() => null);
+  await sleep(14_000);
+
+  // direct
+  const emitter = await startEmitter(1320, c.harborPw);
+  const tDirect = await waitUntil(async () => (await engine.state()).source === "direct", 25_000);
+  const stDirect = await engine.state().catch((e: Error) => e);
+  const mDirect = ce.mark();
+  await docker(["rm", "-f", emitter]);
+  const tBack = await waitUntil(async () => (await engine.state()).source === "fallback", 25_000);
+  const stBack = await engine.state().catch((e: Error) => e);
+  const skipOnFallback = await engine.skip().catch((e: Error) => e);
+
+  // 18: skip a long track
+  const mLong = ce.mark();
+  await engine.push(long);
+  await waitUntil(isAuto, 12_000);
+  await sleep(8000);
+  const mSkip = ce.mark();
+  const skipRes = await engine.skip().catch((e: Error) => e);
+  const tLeft = await waitUntil(async () => (await engine.state()).source !== "auto", 10_000);
+  await sleep(9000);
+
+  // 19: paths
+  const rawBefore = await telnet(["request.all"]).catch((e: Error) => [e.message]);
+  const hostile = ["/media/x.mp3\nrequest.all", "/media/x.mp3\r\nrequest.all", "annotate:a=\"b\":/media/x.mp3", "process:ls", "/media/../etc/passwd"];
+  const hostileCodes: string[] = [];
+  for (const h of hostile) {
+    hostileCodes.push(await engine.push({ ...q, path: h.startsWith("/media") && !h.includes("..") ? mediaRoot + h.slice("/media".length) : h })
+      .then(() => "accepted", (e: unknown) => (e instanceof EngineError ? e.code : "other")));
+  }
+  const rawAfter = await telnet(["request.all"]).catch((e: Error) => [e.message]);
+  const mW = ce.mark();
+  const weirdPush = await engine.push(weird).then(() => "ok", (e: unknown) => (e instanceof EngineError ? e.code : "other"));
+  await sleep(9000);
+  const lqRunning = (await docker(["inspect", "-f", "{{.State.Running}}", `${PROJECT}-liquidsoap-1`])).out.trim() === "true";
+
+  // 22: two clients pushing at the same time
+  const other = make();
+  other.start();
+  const mC = ce.mark();
+  const both = await Promise.allSettled([engine.push(c1), other.push(c2)]);
+  const ridsSeen = await telnet(["request.all"]).catch(() => [""]);
+  await other.close();
+  await sleep(13_000);
+
+  // 21: control plane restart with a long track playing and three waiting
+  await waitUntil(async () => (await engine.state()).source === "fallback", 25_000); // the previous tracks are done
+  await engine.push(long);
+  await waitUntil(async () => (await engine.state()).current?.title === "Tone Long", 12_000);
+  await sleep(3000);
+  await engine.push(q);
+  await engine.push(q2);
+  await engine.push(weird);
+  const sumBefore = await engine.queuedSeconds().catch(() => NaN);
+  const mSwap = ce.mark();
+  await engine.close(); // the client dies, then a fresh one is born with an empty ledger
+  engine = make();
+  engine.start();
+  const sumAfter = await engine.queuedSeconds().catch(() => NaN);
+  const qAfter = await engine.queue().catch(() => []);
+  const nextAfter = await engine.next().catch(() => null);
+  await sleep(5000);
+  const mSwapEnd = ce.mark();
+
+  const ws = await decode(ce.stop(), "engine-e2e");
+
+  await guarded(16, "engine push and queue", async () => {
+    const hits = countDominant(ws, F_QUEUE, mP, mP + 16).hits;
+    const ok = pushQ === "ok" && pushQ2 === "ok" && hits >= 12 && Number.isFinite(ahead) && Math.abs(ahead - 4) <= 1;
+    return { ok, detail: `push q then q2 (8 s + 4 s); queuedSeconds=${Number.isFinite(ahead) ? ahead : "error"} (expected 4 +/- 1: only q2 waits); 880 Hz dominant in ${hits} windows (>= 12 expected); auto after ${tAuto?.toFixed(1)} s; push results ${pushQ}/${pushQ2}` };
+  });
+
+  await guarded(17, "engine state and next", async () => {
+    const s0 = st0 instanceof Error ? undefined : st0;
+    const sa = stAuto instanceof Error ? undefined : stAuto;
+    const sd = stDirect instanceof Error ? undefined : stDirect;
+    const sb = stBack instanceof Error ? undefined : stBack;
+    const ok = s0?.source === "fallback" && /^[ab]$/.test(s0.current?.title ?? "") && s0.current?.assetId === null
+      && sa?.source === "auto" && sa.current?.title === "Tone Q" && sa.current.assetId === 101
+      && nextUp?.title === "Tone Q2" && nextUp.assetId === 102
+      && sd?.source === "direct" && sd.current === null && sb?.source === "fallback"
+      && !(skipOnFallback instanceof Error) && skipOnFallback.skipped === false;
+    return { ok, detail: `empty queue: ${s0?.source}/"${s0?.current?.title}"; playing: ${sa?.source}/"${sa?.current?.title}"; next: "${nextUp?.title}"; live: ${sd?.source} after ${tDirect?.toFixed(1)} s (mark ${mDirect.toFixed(0)}); after live: ${sb?.source} after ${tBack?.toFixed(1)} s; skip on fallback: ${JSON.stringify(skipOnFallback instanceof Error ? skipOnFallback.message : skipOnFallback)}` };
+  });
+
+  await guarded(18, "engine skip", async () => {
+    const before = expectTone(ws, F_QUEUE, mLong + 4, mSkip - 2, "before skip");
+    const after = expectTone(ws, F_FALLBACK, mSkip + 4, mSkip + 8, "after skip");
+    const ok = before.ok && after.ok && !(skipRes instanceof Error) && skipRes.skipped === true && tLeft !== undefined;
+    return { ok, detail: `skip=${JSON.stringify(skipRes instanceof Error ? skipRes.message : skipRes)}; left auto after ${tLeft?.toFixed(1)} s; ${before.detail}; ${after.detail}` };
+  });
+
+  await guarded(19, "engine paths", async () => {
+    const played = countDominant(ws, F_QUEUE, mW, mW + 12).hits;
+    const sameRequests = (rawBefore[0] ?? "") === (rawAfter[0] ?? "") && rawBefore.length === 1;
+    const ok = hostileCodes.every((x) => x === "invalid_input") && sameRequests && lqRunning && (weirdPush === "ok" ? played >= 8 : weirdPush === "invalid_input");
+    return { ok, detail: `hostile paths -> ${hostileCodes.join("/")}; request.all unchanged: ${sameRequests}; liquidsoap running: ${lqRunning}; name with spaces and quotes: push ${weirdPush}, 880 Hz in ${played} windows (>= 8 expected if played)` };
+  });
+
+  await guarded(22, "engine concurrent clients", async () => {
+    const played = countDominant(ws, F_QUEUE, mC, mC + 18).hits;
+    const [a, b] = both;
+    const ok = a.status === "fulfilled" && b.status === "fulfilled" && played >= 16;
+    return { ok, detail: `two clients pushed ${a.status}/${b.status}; request.all="${(ridsSeen[0] ?? "").replace(/\s+/g, " ")}"; 880 Hz dominant in ${played} windows (>= 16 expected for 2 x 5 s)` };
+  });
+
+  await guarded(21, "engine control plane restart", async () => {
+    const expected = 8 + 4 + 6;
+    const silence = longestSilence(ws.filter((w) => w.start >= mSwap - 4 && w.start < mSwapEnd), 0);
+    const tone = expectTone(ws, F_QUEUE, mSwap - 3, mSwapEnd - 1, "around the swap");
+    const resolved = qAfter.length === 3 && qAfter.every((i) => i.assetId !== null);
+    const ok = Math.abs(sumBefore - expected) <= 1.5 && Math.abs(sumAfter - expected) <= 1.5 && resolved && silence <= 2 && tone.ok
+      && nextAfter?.title === "Tone Q";
+    return { ok, detail: `queuedSeconds before=${sumBefore}, new client=${sumAfter} (expected ${expected} +/- 1.5); rebuilt from the library: ${resolved} (${qAfter.map((i) => i.title).join(", ")}); next="${nextAfter?.title}"; longest silence ${silence} s; ${tone.detail}` };
+  });
+
+  // 20: engine outage and return (the queue is lost with the engine: expected)
+  await guarded(20, "engine outage and return", async () => {
+    await compose(["stop", "-t", "2", "liquidsoap"]);
+    const tDown = await waitUntil(async () => !(await engine.healthy()), 10_000, 300);
+    const t0 = performance.now();
+    const pushErr = await engine.push(q).then(() => "accepted", (e: unknown) => (e instanceof EngineError ? e.code : "other"));
+    const qErr = await engine.queuedSeconds().then(() => "number", (e: unknown) => (e instanceof EngineError ? e.code : "other"));
+    const fast = performance.now() - t0;
+    await compose(["start", "liquidsoap"]);
+    const tUp = await waitUntil(() => engine.healthy(), 25_000, 500);
+    const mount = await waitForMount(30);
+    let toneDetail = "mount did not reappear";
+    let toneOk = false;
+    if (mount !== undefined) {
+      const c5 = new Capture();
+      await c5.start();
+      await sleep(9000);
+      const w5 = await decode(c5.stop(), "engine-outage");
+      const e = expectTone(w5, F_FALLBACK, SETTLE, 9, "after the outage");
+      toneOk = e.ok;
+      toneDetail = e.detail;
+    }
+    const ok = tDown !== undefined && tDown <= 5 && pushErr !== "accepted" && qErr !== "number" && fast < 4000 && tUp !== undefined && tUp <= 20 && toneOk;
+    return { ok, detail: `healthy() false after ${tDown?.toFixed(1)} s (<= 5); push -> ${pushErr}, queuedSeconds -> ${qErr}, answered in ${(fast / 1000).toFixed(1)} s; healthy() true again ${tUp?.toFixed(1)} s after the restart without recreating the client (<= 20); ${toneDetail}` };
+  });
+  await engine.close();
 }
 
 async function main(): Promise<number> {
@@ -362,7 +571,7 @@ async function main(): Promise<number> {
   }
 
   const timer = setTimeout(() => {
-    log("TIMEOUT: global limit of 5 minutes reached, forcing cleanup");
+    log("TIMEOUT: global limit of 8 minutes reached, forcing cleanup");
     void cleanup().finally(() => process.exit(1));
   }, GLOBAL_TIMEOUT_MS);
   timer.unref();
@@ -511,6 +720,10 @@ async function main(): Promise<number> {
     d12 = `flow back ${delay.toFixed(1)} s after restart; ${e.detail}`;
   }
   record(12, "engine restart", ok12, d12);
+
+
+  // ------------------------------------------------------------------ Phase E (spec 001): the real LiquidsoapEngine
+  await engineScenario();
 
   // Criterion 13: empty fallback folder (documented limit: silence is expected)
   for (const f of ["a.mp3", "b.mp3"]) rmSync(join(ctx.runDir, "media", "fallback", f), { force: true });
