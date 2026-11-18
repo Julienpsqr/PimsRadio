@@ -1,19 +1,31 @@
-# DRAFT - audio engine only, for development. Not yet tested (needs Docker).
+# Audio engine only (Icecast + Liquidsoap), for development and for `npm run test:engine`.
 # Usage: npm run gen-engine && docker compose -f deploy/docker-compose.dev.yml up
 # Then listen on http://localhost:8000/radio (put a few audio files in media/fallback first).
+#
+# Everything environment-specific is a variable with a development default, so the
+# engine test (`npm run test:engine`) reuses this file instead of duplicating it.
+# Host ports are bound to 127.0.0.1 only; the Liquidsoap telnet server has no
+# authentication and must never be exposed beyond localhost.
+#
+# Image pins (checked with `docker manifest inspect` on 2026-11-18, linux/arm64 and linux/amd64 present):
+#   savonet/liquidsoap:v2.4.6   latest stable 2.x (official Savonet image)
+#   libretime/icecast:2.4.4     Icecast 2.4.4, multi-arch, actively rebuilt (LibreTime project)
+# Never use `latest`; each tag appears once, and src/engine/compose.test.ts enforces it.
 services:
   icecast:
     image: libretime/icecast:2.4.4
     environment:
-      ICECAST_SOURCE_PASSWORD: change-me
-      ICECAST_ADMIN_PASSWORD: change-me
-      ICECAST_RELAY_PASSWORD: change-me
-    ports: ["8000:8000"]
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-change-me}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD:-change-me}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD:-change-me}
+    ports: ["127.0.0.1:${PIMS_ICECAST_PORT:-8000}:8000"]
   liquidsoap:
-    image: savonet/liquidsoap:v2.3.0
+    image: savonet/liquidsoap:v2.4.6
     command: ["/engine/generated/radio.liq"]
     depends_on: [icecast]
     volumes:
-      - ../engine/generated:/engine/generated:ro
-      - ../media:/media
-    ports: ["8005:8005"]
+      - ${PIMS_ENGINE_DIR:-../engine/generated}:/engine/generated:ro
+      - ${PIMS_MEDIA_DIR:-../media}:/media
+    ports:
+      - "127.0.0.1:${PIMS_HARBOR_PORT:-8005}:8005"
+      - "127.0.0.1:${PIMS_TELNET_PORT:-1234}:1234"
