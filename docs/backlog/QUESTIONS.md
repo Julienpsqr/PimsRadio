@@ -24,5 +24,14 @@ Question : A ou C, et peux-tu obtenir les documents ci-dessus ?
 Doit tourner hors de la machine de la radio. Option : documenter un déploiement sur un petit VPS/Raspberry d'un bénévole, ou un service de supervision gratuit tiers en simple complément. Veux-tu aussi une offre hébergée (cf. PLAN, offre associations) ?
 **Réponse de Julien (2026-11-18) : chaque radio déploie la sonde elle-même.** Pas d'offre hébergée pour l'instant.
 
+## Q5 (019) Sources de musique externes : lesquelles utilisent vraiment tes radios ?
+Principe retenu (validateur) : le moteur ne lit que le disque local ; toute source externe est importée puis copiée dans un cache borné (019b) avant diffusion. V1 = dossier monté par le système (NAS NFS/SMB), 019a.
+- Quels stockages utilisent aujourd'hui les radios : NAS local (NFS/SMB), Nextcloud/WebDAV, cloud (S3, Google Drive, Dropbox), serveur de bibliothèque musicale en ligne (Subsonic/Navidrome/Plex...), disque USB, autre ?
+- Les fichiers sont-ils sous contrat/licence propre à la radio, ou fournis par un service tiers (pool de promo, webradio de musique libre) ? Quelle provenance/autorisation faut-il conserver par source ?
+- Le serveur est-il sur le réseau local de la radio (adresse privée, donc SSRF-sensible) ou sur Internet ?
+- Taille de la musique à garder en copie locale (pour dimensionner le cache) ?
+Options : A (recommandée) livrer 019a + 019b seuls (dossier monté + cache) ; l'accès Nextcloud/S3/Drive se fait par un montage externe (rclone, davfs) hors PimsRadio. B ajouter ensuite un connecteur natif WebDAV (019c) si Nextcloud est répandu. C connecteurs multiples natifs (déconseillé : dépendances, secrets, SSRF).
+Question : A ou B, et quels serveurs réels ?
+
 ## Réponses en attente (2026-11-18)
 Julien n'a pas encore les informations pour Q2 (état de l'émetteur) ni Q4 (déclarations de droits). Ces deux idées (017c, 018b) sont **mises en attente** dans le backlog (statut `blocked`) et reprises quand une radio pilote pourra fournir : la liste des sociétés payées, un exemple de déclaration réelle anonymisé avec la spécification officielle, et ce que son émetteur expose.
