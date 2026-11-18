@@ -17,6 +17,7 @@ Automation libre pour radios associatives (FM, DAB+, web). Dépôt **public**, A
 8. En-tête `// SPDX-License-Identifier: AGPL-3.0-or-later` dans chaque fichier source.
 9. Décision structurante = une note dans `docs/decisions/` (ADR), pas de modification d'une ADR acceptée sans nouvelle ADR.
 10. Design : gris, coins carrés, clair/sombre, sans emoji, mobile d'abord (320 px), contrastes AA.
+11. **Licences et code tiers** : on peut s'inspirer des idées, jamais copier le code, les tests, les textes ni les assets d'un autre dépôt, sauf licence explicitement compatible avec AGPL-3.0-or-later, avis conservé, entrée dans `THIRD_PARTY_NOTICES.md` et signalement. Toute dépendance a une licence compatible (MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0/AGPL-3.0) ; interdit : licence absente, GPL-2.0-only, non commerciale, propriétaire (`npm run check:licenses`, en CI). Anonymat : aucun projet tiers n'est nommé comme source d'idée.
 
 ## Fichiers de pilotage
 `docs/backlog/BACKLOG.md` (statuts) · `docs/specs/` · `docs/design/` · `docs/qa/` · `docs/backlog/JOURNAL.md`.
