@@ -1,0 +1,19 @@
+# DRAFT - audio engine only, for development. Not yet tested (needs Docker).
+# Usage: npm run gen-engine && docker compose -f deploy/docker-compose.dev.yml up
+# Then listen on http://localhost:8000/radio (put a few audio files in media/fallback first).
+services:
+  icecast:
+    image: libretime/icecast:2.4.4
+    environment:
+      ICECAST_SOURCE_PASSWORD: change-me
+      ICECAST_ADMIN_PASSWORD: change-me
+      ICECAST_RELAY_PASSWORD: change-me
+    ports: ["8000:8000"]
+  liquidsoap:
+    image: savonet/liquidsoap:v2.3.0
+    command: ["/engine/generated/radio.liq"]
+    depends_on: [icecast]
+    volumes:
+      - ../engine/generated:/engine/generated:ro
+      - ../media:/media
+    ports: ["8005:8005"]

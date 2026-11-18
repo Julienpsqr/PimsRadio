@@ -1,5 +1,5 @@
-# Sécurité
+# Security / Sécurité
 
-Pour signaler une faille, **n'ouvre pas de ticket public**. Utilise le signalement privé de GitHub (onglet *Security* > *Report a vulnerability* du dépôt). Tu recevras une réponse sous 7 jours.
+**EN** — To report a vulnerability, do **not** open a public issue. Use GitHub's private reporting (repository *Security* tab > *Report a vulnerability*). Expect a reply within 7 days. No stable release exists yet.
 
-Le projet est en conception : aucune version stable n'est encore publiée.
+**FR** — Pour signaler une faille, **n'ouvrez pas** de ticket public. Utilisez le signalement privé de GitHub (onglet *Security* > *Report a vulnerability*). Réponse sous 7 jours. Aucune version stable n'existe encore.

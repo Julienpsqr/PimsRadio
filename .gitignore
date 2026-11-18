@@ -5,4 +5,8 @@ coverage/
 *.log
 .DS_Store
 /data/
-/media/
+/media/*
+!/media/fallback/
+/media/fallback/*
+!/media/fallback/.gitkeep
+/engine/generated/

@@ -1,0 +1,20 @@
+{
+  "name": "pimsradio",
+  "version": "0.0.1",
+  "description": "Open-source automation for community radio stations (FM, DAB+, web) / Automation libre pour radios associatives",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test --test-force-exit \"dist/**/*.test.js\"",
+    "start": "node dist/main.js",
+    "gen-engine": "npm run build && node dist/tools/gen-engine.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
