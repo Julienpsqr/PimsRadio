@@ -47,3 +47,13 @@ test("a signal shorter than one window yields no window (no false OK)", () => {
   assert.deepEqual(analyze(concat(tone(440, 0.2)), FREQS), []);
   assert.deepEqual(countDominant([], 0, 0, 10), { hits: 0, total: 0 });
 });
+
+test("a tone off the analysed frequencies (500 Hz, 600 Hz) is not declared dominant 440", () => {
+  for (const f of [500, 600, 700]) {
+    const ws = analyze(concat(tone(f, 2)), FREQS);
+    assert.deepEqual(countDominant(ws, 0, 0, 2), { hits: 0, total: 4 }, `${f} Hz`);
+  }
+  // sanity: the exact and a very close frequency still count
+  assert.deepEqual(countDominant(analyze(concat(tone(440, 2)), FREQS), 0, 0, 2), { hits: 4, total: 4 });
+  assert.deepEqual(countDominant(analyze(concat(tone(441, 2)), FREQS), 0, 0, 2), { hits: 4, total: 4 });
+});

@@ -17,6 +17,12 @@ export interface Window {
 
 export const SILENCE_DB = -50;
 export const DOMINANCE_RATIO = 10;
+/**
+ * Minimum share of the window's power that must sit on the dominant frequency. A pure tone
+ * gives ~1; a tone 60 Hz off the analysed bin gives under 0.01, so "wrong frequency"
+ * is not mistaken for a nearby expected one.
+ */
+export const MIN_TONE_SHARE = 0.25;
 
 /** Parse a RIFF/WAVE file (16-bit PCM). Multi-channel is averaged to mono. */
 export function parseWav(buf: Buffer): Pcm {
@@ -115,6 +121,15 @@ export function dominantIndex(energies: readonly number[], ratio = DOMINANCE_RAT
   return best;
 }
 
+/** Dominant tone of a window: dominant bin AND most of the window power concentrated on it. */
+export function dominantOfWindow(w: Window, ratio = DOMINANCE_RATIO, minShare = MIN_TONE_SHARE): number {
+  const idx = dominantIndex(w.energies, ratio);
+  if (idx === -1) return -1;
+  const meanSquare = 10 ** (w.rmsDb / 10);
+  // Goertzel power of a pure tone of amplitude A is A^2, its mean square is A^2 / 2.
+  return (w.energies[idx] as number) >= minShare * 2 * meanSquare ? idx : -1;
+}
+
 export function windowsBetween(ws: readonly Window[], from: number, to: number): Window[] {
   return ws.filter((w) => w.start >= from && w.start + 0.5 <= to + 1e-9);
 }
@@ -122,7 +137,7 @@ export function windowsBetween(ws: readonly Window[], from: number, to: number):
 /** Number of windows in [from, to] whose dominant tone is `freqs[idx]`, and the total. */
 export function countDominant(ws: readonly Window[], idx: number, from: number, to: number): { hits: number; total: number } {
   const sel = windowsBetween(ws, from, to);
-  return { hits: sel.filter((w) => dominantIndex(w.energies) === idx).length, total: sel.length };
+  return { hits: sel.filter((w) => dominantOfWindow(w) === idx).length, total: sel.length };
 }
 
 /** Longest run of consecutive silent windows at or after `from`, in seconds. */
