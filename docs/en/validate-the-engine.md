@@ -26,6 +26,7 @@ Passwords are random per run (`test-` prefix) and masked in all output.
 
 ## Measured behaviour worth knowing
 - Telnet commands: `auto.push <path>` (returns the RID), `auto.queue` (lists **waiting** requests only: a file already playing is no longer listed), `request.all` (every request), `auto.skip`. Each answer ends with an `END` line.
+- **Telnet security**: inside the container the Liquidsoap telnet server listens on 0.0.0.0 (required for Docker port publishing). It has **no authentication**: its only protection is the 127.0.0.1 binding of the published port in the compose file. Never publish this port on any other address (neither `0.0.0.0:` nor a network IP).
 - Priority is live > queue > fallback; switching is immediate (`track_sensitive=false`).
 - The harbor pre-buffer is reduced to 2 s (the 12 s default delayed switching by more than 10 s).
 - Icecast restarted: Liquidsoap reconnects by itself. Liquidsoap restarted: the stream returns from the fallback within seconds.

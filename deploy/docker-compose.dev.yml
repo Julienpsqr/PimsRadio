@@ -6,6 +6,9 @@
 # engine test (`npm run test:engine`) reuses this file instead of duplicating it.
 # Host ports are bound to 127.0.0.1 only; the Liquidsoap telnet server has no
 # authentication and must never be exposed beyond localhost.
+# Inside the container the telnet server listens on 0.0.0.0 (generated script): this is
+# required for Docker's port publishing to reach it. The ONLY protection is the
+# 127.0.0.1 binding of the published port below: never publish it on another address.
 #
 # Image pins (checked with `docker manifest inspect` on 2026-11-18, linux/arm64 and linux/amd64 present):
 #   savonet/liquidsoap:v2.4.6   latest stable 2.x (official Savonet image)

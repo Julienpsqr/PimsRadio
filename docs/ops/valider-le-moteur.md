@@ -26,6 +26,7 @@ Les mots de passe sont générés à chaque exécution (préfixe `test-`) et mas
 
 ## Comportements mesurés à connaître
 - Commandes telnet : `auto.push <chemin>` (renvoie le RID), `auto.queue` (liste uniquement les requêtes **en attente** : un fichier déjà en lecture n'y figure plus), `request.all` (toutes les requêtes), `auto.skip`. Chaque réponse se termine par une ligne `END`.
+- **Sécurité du telnet** : dans le conteneur, le serveur telnet de Liquidsoap écoute sur 0.0.0.0 (nécessaire pour que Docker publie le port). Il n'a **aucune authentification** : sa seule protection est la publication sur 127.0.0.1 dans le compose. Ne jamais publier ce port sur une autre adresse (ni `0.0.0.0:`, ni une IP du réseau).
 - La priorité est direct > file > secours ; le passage est immédiat (`track_sensitive=false`).
 - Le pré-tampon harbor est réduit à 2 s (le défaut de 12 s retardait la bascule de plus de 10 s).
 - Icecast redémarré : Liquidsoap se reconnecte seul. Liquidsoap redémarré : le flux revient depuis le secours en quelques secondes.
