@@ -331,7 +331,7 @@ const SLOTS = (d) => [
   [12, 14, 'pl', 'Playlist', 'Midi chanson'], [14, 16, d === 2 ? 'rot draft' : 'rot', 'Rotation', d === 2 ? 'Après-midi (brouillon)' : 'Après-midi'],
   [16, 18, d === 5 ? 'live' : 'rot', d === 5 ? 'Direct' : 'Rotation', d === 5 ? 'Radio-crochet' : 'Goûter musical'],
   [18, 19, 'flux', 'Flux', 'Radio Partenaire'], [19, 22, 'pl', 'Playlist', 'Jazz du soir'], [22, 24, 'rot draft', 'Rotation', 'Nuit (brouillon)']
-].filter(s => !(d > 4 && s[0] === 6 && false));
+];
 const days = document.getElementById('days'), tabs = document.getElementById('daytabs'); let selDay = 2;
 DAYS.forEach((n, d) => {
   const col = document.createElement('div'); col.className = 'day' + (d === selDay ? ' sel' : ''); col.dataset.d = d;
