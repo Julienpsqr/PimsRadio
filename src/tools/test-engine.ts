@@ -341,8 +341,12 @@ async function main(): Promise<number> {
   const harborPw = "test-" + randomBytes(12).toString("hex");
   secrets.push(icePw, harborPw);
   const runDir = mkdtempSync(join(tmpdir(), "pimsradio-engine-"));
-  chmodSync(runDir, 0o777);
-  for (const d of ["engine", "captures", "media"]) { mkdirSync(join(runDir, d)); chmodSync(join(runDir, d), 0o777); }
+  chmodSync(runDir, 0o711); // traversable by the container user, not listable
+  // engine is mounted read-only (readable only); captures and media are written by containers.
+  for (const [d, mode] of [["engine", 0o755], ["captures", 0o777], ["media", 0o777]] as const) {
+    mkdirSync(join(runDir, d));
+    chmodSync(join(runDir, d), mode);
+  }
   ctx = { runDir, env: composeEnv(runDir, icePw, harborPw), lqImage: composeImage("liquidsoap"), icePw, harborPw };
   const env = ctx.env;
   secrets.push(String(env.ICECAST_ADMIN_PASSWORD), String(env.ICECAST_RELAY_PASSWORD));
