@@ -5,7 +5,7 @@ Priorités : P0 stabilité audio · P1 cœur produit · P2 confort · P3 plus ta
 
 | N° | Titre | Statut | Prio | Notes |
 |---|---|---|---|---|
-| 001 | Moteur Liquidsoap réel (client telnet, file, état) derrière `AudioEngine` | accepted | P0 | Testable avec un faux serveur telnet ; validation de bout en bout : Docker |
+| 001 | Moteur Liquidsoap réel (client telnet, file, état) derrière `AudioEngine` | in-progress | P0 | Validé en bout en bout avec Liquidsoap réel (harnais de l'élément 002, Docker OK) ; client telnet à écrire |
 | 002 | Validation du compose et du script Liquidsoap (Icecast + Liquidsoap + secours) | done | P0 | QA PASS (ronde 2), revue APPROVE. Reste à suivre : fiabilité réelle (disque plein, endurance, amd64), job CI nocturne jamais exécuté sur GitHub |
 | 003 | Détection de silence et alertes (e-mail / ntfy) | accepted | P0 | Dépend de 001 |
 | 004 | Enregistrement continu (aircheck) + rétention configurable | accepted | P0 | Dépend de 001/002 ; durée par défaut à vérifier côté réglementation |
