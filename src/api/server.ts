@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { createServer, type Server } from "node:http";
-import type { AudioEngine } from "../engine/engine.js";
+import type { AirEngine, AudioEngine, EngineDetail } from "../engine/engine.js";
 import { type Grid, resolveSlot } from "../scheduler/grid.js";
 
 export interface ApiDeps {
@@ -25,7 +25,10 @@ export function createApi(deps: ApiDeps): Server {
         // The control plane being up does not mean the engine is; report both.
         let engine = false;
         try { engine = await deps.engine.healthy(); } catch { engine = false; }
-        return send(200, { ok: true, version: deps.version, engine });
+        // Only fixed fields (an error code, never a raw message): safe to expose.
+        let engineDetail: EngineDetail | undefined;
+        try { engineDetail = (deps.engine as Partial<AirEngine>).detail?.(); } catch { engineDetail = undefined; }
+        return send(200, { ok: true, version: deps.version, engine, ...(engineDetail ? { engineDetail } : {}) });
       }
       if (req.method === "GET" && url.pathname === "/api/now") {
         return send(200, { slot: resolveSlot(deps.grid.all(), now(), deps.timeZone) });

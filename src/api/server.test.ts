@@ -20,9 +20,13 @@ async function start() {
 
 test("health reports the control plane and the engine separately", async () => {
   const { engine, base, close } = await start();
-  assert.deepEqual(await (await fetch(`${base}/api/health`)).json(), { ok: true, version: "t", engine: true });
+  const up = await fetch(`${base}/api/health`);
+  assert.equal(up.status, 200);
+  assert.deepEqual(await up.json(), { ok: true, version: "t", engine: true, engineDetail: { connected: true, lastOkAt: null, lastError: null } });
   engine.up = false;
-  assert.deepEqual(await (await fetch(`${base}/api/health`)).json(), { ok: true, version: "t", engine: false });
+  const down = await fetch(`${base}/api/health`);
+  assert.equal(down.status, 200, "an unreachable engine is reported, not an HTTP error");
+  assert.deepEqual(await down.json(), { ok: true, version: "t", engine: false, engineDetail: { connected: false, lastOkAt: null, lastError: "unreachable" } });
   close();
 });
 
@@ -32,4 +36,20 @@ test("now returns the slot on air; unknown routes give 404", async () => {
   assert.equal(now.slot.kind, "rotation");
   assert.equal((await fetch(`${base}/api/nothing`)).status, 404);
   close();
+});
+
+test("health stays 200 with engine=false and no raw message when the engine misbehaves", async () => {
+  const db = openDb(":memory:");
+  const engine = new FakeEngine();
+  engine.healthy = async () => { throw new Error("secret /media/path detail"); };
+  engine.detail = () => { throw new Error("secret /media/path detail"); };
+  const server = createApi({ engine, grid: new Grid(db), timeZone: "Europe/Paris", version: "t" });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const res = await fetch(`${base}/api/health`);
+  const text = await res.text();
+  assert.equal(res.status, 200);
+  assert.deepEqual(JSON.parse(text), { ok: true, version: "t", engine: false });
+  assert.ok(!text.includes("secret"));
+  server.close();
 });
