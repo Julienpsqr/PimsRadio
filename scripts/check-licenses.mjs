@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Fails (exit 1) if a dependency in package-lock.json has a missing, unknown or
 // disallowed license. No dependency. Usage: node scripts/check-licenses.mjs
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -11,6 +11,9 @@ export const ALLOWED = [
   "LGPL-2.1-only", "LGPL-2.1-or-later", "LGPL-3.0-only", "LGPL-3.0-or-later",
   "GPL-3.0-only", "GPL-3.0-or-later", "AGPL-3.0-only", "AGPL-3.0-or-later",
 ];
+
+/** Maximum parenthesis nesting accepted; deeper expressions are refused (avoids stack overflow). */
+export const MAX_DEPTH = 64;
 
 /** Splits an SPDX expression into tokens: parentheses are their own tokens, the rest is split on whitespace. */
 function tokenize(expr) {
@@ -22,20 +25,25 @@ function tokenize(expr) {
  * Grammar: expr = and ("OR" and)* ; and = primary ("AND" primary)* ;
  * primary = "(" expr ")" | id. AND binds tighter than OR. Operators are upper-case only.
  * "WITH" (exceptions) is not supported and therefore refused. Any malformed
- * expression, trailing token or non-string input returns false.
+ * expression, trailing token, nesting deeper than MAX_DEPTH or non-string input
+ * returns false. Any unexpected exception raised by the parser is also a refusal.
  */
 export function isAllowed(expr, allowed = ALLOWED) {
   if (typeof expr !== "string" || expr.trim() === "") return false;
   const set = new Set(allowed);
   const tokens = tokenize(expr);
   let pos = 0;
+  let depth = 0;
   const fail = () => { throw new SyntaxError("invalid SPDX expression"); };
   const primary = () => {
     const t = tokens[pos++];
     if (t === undefined) return fail();
     if (t === "(") {
+      if (++depth > MAX_DEPTH) return fail();
+      
       const v = orExpr();
       if (tokens[pos++] !== ")") fail();
+      depth--;
       return v;
     }
     if (t === ")" || t === "AND" || t === "OR" || t === "WITH") return fail();
@@ -55,9 +63,9 @@ export function isAllowed(expr, allowed = ALLOWED) {
     const v = orExpr();
     if (pos !== tokens.length) return false;
     return v;
-  } catch (e) {
-    if (e instanceof SyntaxError) return false;
-    throw e;
+  } catch {
+    // Safety net: the parser only handles untrusted text, any failure is a refusal.
+    return false;
   }
 }
 
@@ -113,4 +121,13 @@ function main() {
   console.log(`${rows.length} dependance(s), licences compatibles AGPL-3.0-or-later.`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
+function isDirectRun() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) main();

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isAllowed, collect } from "./check-licenses.mjs";
+import { isAllowed, collect, MAX_DEPTH } from "./check-licenses.mjs";
 
 test("licences simples autorisees", () => {
   for (const l of ["MIT", "Apache-2.0", "ISC", "BSD-3-Clause", "LGPL-3.0-or-later", "AGPL-3.0-only"]) {
@@ -80,4 +80,19 @@ test("collect : licence objet ou tableau refusee", () => {
   const rows = collect(lock, (p) => (p.endsWith("/m") ? { type: "MIT" } : undefined));
   assert.deepEqual(rows.map((r) => r.ok), [false, false, false]);
   assert.equal(rows[0].license, "(invalide)");
+});
+
+const nest = (n, inner) => "(".repeat(n) + inner + ")".repeat(inner === "" ? 0 : n);
+
+test("imbrication tres profonde : refus sans exception", () => {
+  for (const n of [10_000, 100_000]) {
+    assert.equal(isAllowed(nest(n, "MIT")), false);
+    assert.equal(isAllowed(nest(n, "")), false);
+  }
+});
+
+test("profondeur : MAX_DEPTH niveaux acceptes, un de plus refuse", () => {
+  assert.equal(MAX_DEPTH, 64);
+  assert.equal(isAllowed(nest(64, "MIT")), true);
+  assert.equal(isAllowed(nest(65, "MIT")), false);
 });
