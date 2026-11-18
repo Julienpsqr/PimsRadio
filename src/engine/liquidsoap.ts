@@ -32,7 +32,14 @@ export function lqString(v: string): string {
  *
  * Validated against Liquidsoap v2.4.6 by `npm run test:engine` (spec 002). Telnet
  * commands are prefixed by the queue id: auto.push, auto.queue (waiting requests only),
- * auto.skip; request.all lists every request.
+ * auto.skip; request.all lists every request; request.metadata <rid> gives a request's
+ * metadata; uptime is the engine's own uptime command.
+ *
+ * `pims.state` (spec 001, question 1, validated on v2.4.6 with --check and the harness):
+ * ONE command, registered with server.register(namespace="pims", "state", ...), answering
+ * `source=`, `rid=`, `uptime=` (seconds, float), `filename=` (last, newlines stripped),
+ * then END. source: direct if the harbor input is ready, else auto if the queue is ready,
+ * else fallback (stream is reserved to item 009). The telnet help shows it as pims.state.
  */
 export function generateScript(c: LiquidsoapConfig): string {
   for (const [name, n] of Object.entries({
@@ -50,7 +57,8 @@ settings.server.telnet.port := ${c.telnetPort}
 queue = request.queue(id="auto")
 
 # 2) Last-resort folder: always playable
-emergency = mksafe(playlist(mode="randomize", reload_mode="watch", ${lqString(c.fallbackDir)}))
+fallback_playlist = playlist(mode="randomize", reload_mode="watch", ${lqString(c.fallbackDir)})
+emergency = mksafe(fallback_playlist)
 
 # 3) Live studio feed (highest priority). The default pre-buffer (12 s) delayed the
 #    switch to and from live by more than 10 s (measured, spec 002): keep it short.
@@ -58,6 +66,22 @@ live = input.harbor("live", port=${c.harborPort}, password=${lqString(c.harborPa
 
 radio = fallback(track_sensitive=false, [live, queue, emergency])
 radio = mksafe(radio)
+
+# 4) Read-only state for the control plane (spec 001): telnet command "pims.state".
+#    Answer: lines key=value, then END. Same priority as the fallback above. rid and
+#    filename describe the track being played (empty when live). Newlines in a file
+#    name are replaced so a file name can never forge another key. Uptime lets the
+#    client notice a restart. Nothing here touches the audio path.
+engine_started_at = time()
+def pims_state(_) =
+  src = if live.is_ready() then "direct" elsif queue.is_ready() then "auto" else "fallback" end
+  cur = if src == "auto" then queue.current() elsif src == "fallback" then fallback_playlist.current() else null() end
+  rid = if null.defined(cur) then string(request.id(null.get(cur))) else "" end
+  file = if null.defined(cur) then string.replace(pattern="[\r\n]", fun (_) -> " ", request.filename(null.get(cur))) else "" end
+  "source=" ^ src ^ "\nrid=" ^ rid ^ "\nuptime=" ^ string(time() - engine_started_at) ^ "\nfilename=" ^ file
+end
+server.register(namespace="pims", description="Engine state (read-only).", usage="state", "state", pims_state)
+
 radio = normalize(radio)
 
 output.icecast(

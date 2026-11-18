@@ -31,3 +31,20 @@ test("rejects control characters, bad ports and bad mounts", () => {
 test("harbor input uses a short pre-buffer so live switching is fast", () => {
   assert.match(generateScript(cfg), /input\.harbor\("live", port=8005, password="live", buffer=2\., max=6\.\)/);
 });
+
+test("the script registers the read-only pims.state command (spec 001)", () => {
+  const s = generateScript(cfg);
+  assert.match(s, /server\.register\(namespace="pims", description="[^"]*", usage="state", "state", pims_state\)/);
+  for (const key of ["source=", "rid=", "uptime=", "filename="]) assert.ok(s.includes(key), key);
+  assert.match(s, /live\.is_ready\(\)/);
+  assert.match(s, /queue\.is_ready\(\)/);
+  assert.match(s, /fallback_playlist = playlist\(/);
+  // No telnet-reachable command that could stop or reconfigure the engine is registered here.
+  assert.ok(!/server\.register\([^)]*(shutdown|restart|exit)/i.test(s));
+});
+
+test("the state command does not change with hostile config values and stays before the output", () => {
+  const s = generateScript({ ...cfg, fallbackDir: '/media/x"#{system("id")}' });
+  assert.ok(s.indexOf("pims_state") < s.indexOf("output.icecast"));
+  assert.ok(!s.includes('"#{system'), "interpolation stays escaped");
+});
