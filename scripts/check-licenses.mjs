@@ -12,40 +12,79 @@ export const ALLOWED = [
   "GPL-3.0-only", "GPL-3.0-or-later", "AGPL-3.0-only", "AGPL-3.0-or-later",
 ];
 
-/** Normalises legacy aliases such as "Apache 2.0" is NOT guessed: unknown stays unknown. */
+/** Splits an SPDX expression into tokens: parentheses are their own tokens, the rest is split on whitespace. */
 function tokenize(expr) {
-  return expr.replace(/[()]/g, " ").split(/\s+/).filter(Boolean);
+  return expr.replace(/([()])/g, " $1 ").split(/\s+/).filter(Boolean);
 }
 
 /**
- * Evaluates a simple SPDX expression: ids joined by OR / AND (no parentheses nesting
- * semantics beyond left-to-right precedence AND > OR). Returns true if allowed.
+ * Evaluates an SPDX expression with a recursive-descent parser (fail-closed).
+ * Grammar: expr = and ("OR" and)* ; and = primary ("AND" primary)* ;
+ * primary = "(" expr ")" | id. AND binds tighter than OR. Operators are upper-case only.
+ * "WITH" (exceptions) is not supported and therefore refused. Any malformed
+ * expression, trailing token or non-string input returns false.
  */
 export function isAllowed(expr, allowed = ALLOWED) {
   if (typeof expr !== "string" || expr.trim() === "") return false;
   const set = new Set(allowed);
   const tokens = tokenize(expr);
-  // Split on OR into alternatives; each alternative is ids joined by AND.
-  const alternatives = [[]];
-  for (const t of tokens) {
-    if (t === "OR") alternatives.push([]);
-    else if (t !== "AND") alternatives[alternatives.length - 1].push(t);
+  let pos = 0;
+  const fail = () => { throw new SyntaxError("invalid SPDX expression"); };
+  const primary = () => {
+    const t = tokens[pos++];
+    if (t === undefined) return fail();
+    if (t === "(") {
+      const v = orExpr();
+      if (tokens[pos++] !== ")") fail();
+      return v;
+    }
+    if (t === ")" || t === "AND" || t === "OR" || t === "WITH") return fail();
+    return set.has(t);
+  };
+  const andExpr = () => {
+    let v = primary();
+    while (tokens[pos] === "AND") { pos++; const r = primary(); v = v && r; }
+    return v;
+  };
+  const orExpr = () => {
+    let v = andExpr();
+    while (tokens[pos] === "OR") { pos++; const r = andExpr(); v = v || r; }
+    return v;
+  };
+  try {
+    const v = orExpr();
+    if (pos !== tokens.length) return false;
+    return v;
+  } catch (e) {
+    if (e instanceof SyntaxError) return false;
+    throw e;
   }
-  return alternatives.some((alt) => alt.length > 0 && alt.every((id) => set.has(id)));
 }
 
-/** Returns [{ name, version, license, ok }] for every package of a parsed lockfile. */
+/**
+ * Returns [{ name, version, license, ok }] for every package of a parsed lockfile.
+ * Throws if the lockfile has no "packages" map (lockfileVersion 1 or truncated).
+ * Symlink entries ("link": true) are skipped: their target is listed on its own.
+ * Entries outside node_modules (workspaces) are checked under their own name or path.
+ */
 export function collect(lock, readManifestLicense = () => undefined, allowed = ALLOWED) {
+  const pkgs = lock?.packages;
+  if (typeof pkgs !== "object" || pkgs === null || Array.isArray(pkgs)) {
+    throw new Error("package-lock.json sans cle \"packages\" (lockfileVersion >= 2 requis)");
+  }
+  const marker = "node_modules/";
   const rows = [];
-  for (const [path, info] of Object.entries(lock.packages ?? {})) {
+  for (const [path, info] of Object.entries(pkgs)) {
     if (path === "") continue;
-    const name = path.slice(path.lastIndexOf("node_modules/") + "node_modules/".length);
-    let license = info.license;
-    if (typeof license !== "string") license = readManifestLicense(path);
+    if (info?.link === true) continue;
+    const i = path.lastIndexOf(marker);
+    const name = i >= 0 ? path.slice(i + marker.length) : (info?.name ?? path);
+    let license = info?.license;
+    if (license === undefined) license = readManifestLicense(path);
     rows.push({
       name,
-      version: info.version ?? "?",
-      license: typeof license === "string" ? license : "(absente)",
+      version: info?.version ?? "?",
+      license: typeof license === "string" ? license : license === undefined ? "(absente)" : "(invalide)",
       ok: isAllowed(license, allowed),
     });
   }
@@ -61,6 +100,10 @@ function main() {
     return JSON.parse(readFileSync(file, "utf8")).license;
   };
   const rows = collect(lock, fromManifest);
+  if (rows.length === 0) {
+    console.error("Aucune dependance trouvee dans package-lock.json : verification impossible.");
+    process.exit(1);
+  }
   console.table(rows.map((r) => ({ ...r, ok: r.ok ? "OK" : "REFUSE" })));
   const bad = rows.filter((r) => !r.ok);
   if (bad.length > 0) {
