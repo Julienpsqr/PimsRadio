@@ -75,10 +75,10 @@ radio = mksafe(radio)
 engine_started_at = time()
 def pims_state(_) =
   src = if live.is_ready() then "direct" elsif queue.is_ready() then "auto" else "fallback" end
-  cur = if src == "auto" then queue.current() elsif src == "fallback" then fallback_playlist.current() else null() end
+  cur = if src == "auto" then queue.current() elsif src == "fallback" then fallback_playlist.current() else null end
   rid = if null.defined(cur) then string(request.id(null.get(cur))) else "" end
-  file = if null.defined(cur) then string.replace(pattern="[\r\n]", fun (_) -> " ", request.filename(null.get(cur))) else "" end
-  "source=" ^ src ^ "\nrid=" ^ rid ^ "\nuptime=" ^ string(time() - engine_started_at) ^ "\nfilename=" ^ file
+  fname = if null.defined(cur) then string.replace(pattern="[\\r\\n]", fun (_) -> " ", request.filename(null.get(cur))) else "" end
+  "source=" ^ src ^ "\\nrid=" ^ rid ^ "\\nuptime=" ^ string(time() - engine_started_at) ^ "\\nfilename=" ^ fname
 end
 server.register(namespace="pims", description="Engine state (read-only).", usage="state", "state", pims_state)
 
