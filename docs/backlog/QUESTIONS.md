@@ -54,3 +54,5 @@ Julien n'a pas encore les informations pour Q2 (état de l'émetteur) ni Q4 (dé
 **Réponse de Julien à Q5 (2026-11-18) :** intégrer aussi WebDAV, S3 compatible et HTTP (pas seulement le dossier monté). 019c devient `accepted`, après 019a et 019b.
 
 **Réponses de Julien à Q6 (2026-11-18) :** accès distant par proxy HTTPS optionnel (désactivé par défaut) + VPN documenté ; TOTP obligatoire pour les admins dès que l'accès distant est actif. Voir ADR 0006.
+
+**Réponses de Julien à Q7 (2026-11-18) :** fonctions IA en premier = aide en brouillon seulement ; services en ligne d'abord (local non prioritaire, mais possible via l'adaptateur compatible OpenAI) ; rien ne part sans accord explicite ; plafond de coût bas réglable. Voir ADR 0007.
