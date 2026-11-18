@@ -8,4 +8,4 @@ Chaque choix structurant est écrit ici, une fois, avec sa raison. Pour changer 
 | 0002 | Plan de contrôle en Node.js + TypeScript | acceptée |
 | 0003 | Licence AGPL-3.0 | acceptée |
 | 0004 | Projet autonome, public, sans dépendance à PimsWork | acceptée |
-| 0005 | Construire de zéro, pas d'extension d'AzuraCast | acceptée |
+| 0005 | Construire de zéro, pas d'extension d'un outil existant | acceptée |
