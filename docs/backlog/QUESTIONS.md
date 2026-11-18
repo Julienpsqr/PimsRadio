@@ -33,6 +33,14 @@ Principe retenu (validateur) : le moteur ne lit que le disque local ; toute sour
 Options : A (recommandée) livrer 019a + 019b seuls (dossier monté + cache) ; l'accès Nextcloud/S3/Drive se fait par un montage externe (rclone, davfs) hors PimsRadio. B ajouter ensuite un connecteur natif WebDAV (019c) si Nextcloud est répandu. C connecteurs multiples natifs (déconseillé : dépendances, secrets, SSRF).
 Question : A ou B, et quels serveurs réels ?
 
+## Q6 (020c) Administration à distance : quel modèle d'exposition ?
+Contexte : l'interface doit être utilisable hors du studio (bénévoles, téléphone). Le moteur (telnet) et l'admin Icecast ne sont jamais exposés ; 005 + 020a (durcissement) + 020d (TOTP) précèdent toute ouverture. Une nouvelle ADR est nécessaire (titre proposé : « 0006 — Modèle d'exposition réseau et d'authentification de l'accès distant »).
+- Où tourne le serveur d'une radio (mini-PC au studio, Raspberry, VPS) ? IP publique ou derrière une box/NAT sans redirection de ports possible ?
+- Les bénévoles accepteraient-ils d'installer un client VPN (WireGuard/Tailscale) sur leur téléphone, ou faut-il un accès par simple navigateur ?
+- Qui administre le serveur à la radio pilote (compétence pour un nom de domaine, des certificats) ?
+Options : A VPN/tunnel au choix de la radio, documentation seulement (zéro dépendance, mais barrière pour les bénévoles) ; B (recommandée) reverse proxy HTTPS optionnel dans le compose (Caddy, Apache-2.0 à confirmer ; désactivé par défaut, nécessite un nom de domaine et les ports 80/443) + A documenté pour qui n'a pas d'IP publique ; C accès direct de l'interface sur Internet sans proxy (rejeté : pas de HTTPS).
+Questions : A, B ou les deux ? 2FA TOTP obligatoire pour admin dès l'accès distant (recommandé) : d'accord ? Un tunnel tiers (service externe) est-il acceptable en simple option documentée ?
+
 ## Réponses en attente (2026-11-18)
 Julien n'a pas encore les informations pour Q2 (état de l'émetteur) ni Q4 (déclarations de droits). Ces deux idées (017c, 018b) sont **mises en attente** dans le backlog (statut `blocked`) et reprises quand une radio pilote pourra fournir : la liste des sociétés payées, un exemple de déclaration réelle anonymisé avec la spécification officielle, et ce que son émetteur expose.
 
