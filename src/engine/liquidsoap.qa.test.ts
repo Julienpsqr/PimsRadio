@@ -46,3 +46,13 @@ test("QA-1: backslash before the brace does not rebuild an interpolation", () =>
     assert.ok(!out.includes("#{"), out);
   }
 });
+
+// QA ronde 2: payloads verified on Liquidsoap v2.4.6 (print() returns each value literally).
+test("QA-1 r2: unicode, very long and mixed payloads never leave '#{' nor an unescaped quote", () => {
+  const vals = ["é😀日本#{1+1}", "#".repeat(5000) + "{", "#{".repeat(3000), "\\x7b", '"#{1+1}"', " #{x}", "x".repeat(200000)];
+  for (const v of vals) {
+    const out = lqString(v);
+    assert.ok(!out.includes("#{"));
+    assert.ok(!/(^|[^\\])(\\\\)*"/.test(out.slice(1, -1)), "no unescaped quote inside literal");
+  }
+});

@@ -76,3 +76,17 @@ Le développeur disait vrai sur les chiffres.
 - Le job CI GitHub n'a pas été exécuté.
 - Critère "aucun processus Node enfant" : non vérifié de façon spécifique (les exits 130 et 0 étaient propres).
 - Variabilité de timing sur machine lente : un seul run complet lancé, pas de répétition.
+
+
+## Ronde 2 (re-test ciblé)
+
+**Verdict : PASS**
+
+- `npm test` : 47/47 (48 avec le test ajouté), `npm run typecheck` : OK, `npm run test:engine` : 14/14 critères OK en 154 s (le critère 1 exécute désormais un script réel avec `#{system()}` : reste littéral).
+- QA-1 corrigé. Sur savonet/liquidsoap:v2.4.6, `print(lqString(v))` renvoie la valeur littérale pour : `#{1+1}`, `\#{`, `##{`, `#\x7b`, `\x7b`, guillemets, `\`, unicode/émoji/U+2028, 5001 `#` + `{`, 3000 × `#{`, 200 000 caractères. Script complet généré avec des valeurs hostiles dans toutes les entrées (host, mot de passe, mount, dossier, mot de passe harbor) : `--check` rc=0, aucun fichier créé. Retours chariot : rejetés (exception).
+- QA-2 corrigé. SIGINT puis SIGTERM à ~60 s (phase direct) : sortie 130, message « cleaning up », puis 0 conteneur (`docker ps -a`), 0 réseau, 0 volume, aucun dossier `pimsradio-engine-*` dans le tmp, aucun processus résiduel.
+- Mineurs corrigés : analyseur (500/600 Hz non déclarés dominants 440), telnet 0.0.0.0 documenté.
+- Mutations : `MIN_TONE_SHARE = 0` -> 1 test échoue ; suppression de l'échappement `#{` -> 3 tests échouent ; code restauré.
+- Régression : `git diff main...HEAD --stat` : 17 fichiers, aucun secret, binaire ni gros fichier (plus gros : test-engine.ts, 582 lignes).
+- Test ajouté : `src/engine/liquidsoap.qa.test.ts` (payloads unicode/longs).
+- Non couvert : pannes audio réelles (disque plein, etc.) -> agent fiabilité.
