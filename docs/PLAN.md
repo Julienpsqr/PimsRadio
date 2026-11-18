@@ -20,14 +20,14 @@ Ambition à terme : devenir l'outil de référence des radios associatives (en F
 
 | Outil | Force | Limite pour une asso |
 |---|---|---|
-| AzuraCast | web radio clé en main, très populaire, libre | pensé web radio, pas de grille « radio de flux », pas de DAB/RDS, pas de conformité française |
-| LibreTime (ex-Airtime) | planification de grille | vieillissant, installation lourde |
-| Rivendell / mAirList / RadioDJ | automation de studio complète | Windows ou Linux « à l'ancienne », licences, pas d'IA, pas de web |
-| Offres SaaS (type RadioKing) | simples | payantes, web seulement, enfermement |
+| Outils de web radio libres | web radio clé en main, très populaires, libres | pensé web radio, pas de grille « radio de flux », pas de DAB/RDS, pas de conformité française |
+| Anciens outils libres de planification | planification de grille | vieillissant, installation lourde |
+| Logiciels d'automation de studio | automation de studio complète | Windows ou Linux « à l'ancienne », licences, pas d'IA, pas de web |
+| Offres SaaS de web radio | simples | payantes, web seulement, enfermement |
 
 **Créneau** : *automation complète FM + DAB+ + web*, libre ou auto-hébergeable, **conformité française intégrée**, **IA/MCP natif**, **ouvert aux flux externes**. Aucun concurrent ne coche les cinq.
 
-À vérifier avant de s'engager : maturité actuelle d'AzuraCast sur la planification (ne pas réinventer ce qui existe — voir question Q1).
+À vérifier avant de s'engager : maturité actuelle des outils de web radio libres sur la planification (ne pas réinventer ce qui existe — voir question Q1).
 
 ## 3. Principe d'architecture : deux plans séparés
 
@@ -202,7 +202,7 @@ Le **planificateur** tourne en avance (N prochains titres, toutes les minutes) e
 
 ## 10. Feuille de route
 
-- [ ] **Phase 0 — Cadrage (1 semaine)** : valider ce plan, répondre aux questions (§14), interviewer 2-3 radios associatives, trancher Q1 (construire vs étendre AzuraCast) et la licence ; poser dans le dépôt LICENSE, README, CI de base.
+- [ ] **Phase 0 — Cadrage (1 semaine)** : valider ce plan, répondre aux questions (§14), interviewer 2-3 radios associatives, trancher Q1 (construire vs étendre un outil existant) et la licence ; poser dans le dépôt LICENSE, README, CI de base.
 - [ ] **Phase 1 — Tuyau audio (2-3 sem.)** : `docker-compose.yml` Liquidsoap + Icecast + `install.sh` minimal ; lecture d'un dossier avec fondus et R128 ; secours ; sortie web ; `now_playing`. *Critère : tourne 7 jours sans coupure.*
 - [ ] **Phase 2 — Cerveau (3-4 sem.)** : bibliothèque, grille, rotation, API, UI, utilisateurs, journal.
 - [ ] **Phase 3 — Flux + direct (2 sem.)** : flux entrants, bascule, entrée live, santé, alertes.
@@ -244,7 +244,7 @@ Le **planificateur** tourne en avance (N prochains titres, toutes les minutes) e
 
 ## 14. Questions ouvertes
 
-- ~~**Q1.**~~ **Décidé le 2026-11-18** : de zéro, sur Liquidsoap (pas d'extension d'AzuraCast).
+- ~~**Q1.**~~ **Décidé le 2026-11-18** : de zéro, sur Liquidsoap (pas d'extension d'un outil existant).
 - ~~**Q2.** Nom~~ : **PimsRadio**, dépôt public indépendant (décidé le 2026-11-18).
 - **Q3.** Ton terrain : une radio précise en tête ? Studio sur place ? Émetteur FM distant ? DAB+ via multiplex tiers ? (détermine l'ordre des sorties)
 - **Q4.** Matériel de référence pour les radios : mini-PC Linux, Raspberry Pi, VPS ? (impacte images arm64 et docs)
