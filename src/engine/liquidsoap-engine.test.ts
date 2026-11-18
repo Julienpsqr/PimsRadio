@@ -173,6 +173,19 @@ test("16b. concurrent reads share one queue command; an engine that cannot be re
     assert.deepEqual([a, b], [0, 0]);
     assert.equal(server.lines.filter((l) => l === "auto.queue").length, 1);
   } finally { await done(); }
+  const mute2 = await rig({ uptime: () => undefined });
+  try {
+    const p1 = mute2.engine.healthy();
+    await until(() => mute2.server.lines.length === 1, "probe sent");
+    mute2.timers.advance(2000);
+    assert.equal(await p1, false);
+    mute2.timers.advance(2001); // cache expired but the first uptime is still unanswered
+    const p2 = mute2.engine.healthy();
+    mute2.timers.advance(2000);
+    assert.equal(await p2, false);
+    assert.equal(mute2.server.lines.filter((l) => l === "uptime").length, 1, "no second probe while the first is pending");
+  } finally { await mute2.done(); }
+
   const s = await FakeServer.start();
   const port = s.port;
   await s.stop();

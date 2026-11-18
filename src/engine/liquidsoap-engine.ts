@@ -213,6 +213,8 @@ export class LiquidsoapEngine implements AirEngine {
   }
 
   /** One `uptime` command, bounded by an own timer so the caller never waits past the limit. */
+  private probeSend: Promise<boolean> | undefined;
+
   private probe(): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       let done = false;
@@ -224,13 +226,20 @@ export class LiquidsoapEngine implements AirEngine {
         resolve(ok);
       };
       const timer = this.timers.setTimeout(() => finish(false), this.healthTimeoutMs);
-      this.link.send({ name: "uptime" }, { timeoutMs: this.healthTimeoutMs }).then(
-        (lines) => {
-          this.observeUptime("probe", parseUptime(lines));
-          finish(true);
-        },
-        () => finish(false), // the link already noted the error code
-      );
+      // Never queue a second `uptime` while the previous one is still waiting in the link queue.
+      if (!this.probeSend) {
+        const send = this.link.send({ name: "uptime" }, { timeoutMs: this.healthTimeoutMs }).then(
+          (lines) => {
+            this.observeUptime("probe", parseUptime(lines));
+            return true;
+          },
+          () => false, // the link already noted the error code
+        );
+        this.probeSend = send.finally(() => {
+          this.probeSend = undefined;
+        });
+      }
+      void this.probeSend.then(finish);
     });
   }
 
