@@ -23,3 +23,6 @@ Question : A ou C, et peux-tu obtenir les documents ci-dessus ?
 ## Q3 (017a) Sonde externe : où l'héberger ?
 Doit tourner hors de la machine de la radio. Option : documenter un déploiement sur un petit VPS/Raspberry d'un bénévole, ou un service de supervision gratuit tiers en simple complément. Veux-tu aussi une offre hébergée (cf. PLAN, offre associations) ?
 **Réponse de Julien (2026-11-18) : chaque radio déploie la sonde elle-même.** Pas d'offre hébergée pour l'instant.
+
+## Réponses en attente (2026-11-18)
+Julien n'a pas encore les informations pour Q2 (état de l'émetteur) ni Q4 (déclarations de droits). Ces deux idées (017c, 018b) sont **mises en attente** dans le backlog (statut `blocked`) et reprises quand une radio pilote pourra fournir : la liste des sociétés payées, un exemple de déclaration réelle anonymisé avec la spécification officielle, et ce que son émetteur expose.
