@@ -15,10 +15,14 @@ export interface LiquidsoapConfig {
   bitrateKbps: number;
 }
 
-/** Quote a value as a Liquidsoap string literal. */
+/**
+ * Quote a value as a Liquidsoap string literal. Liquidsoap 2.x evaluates `#{expr}` inside
+ * double quotes, so `{` after `#` is written as the escape `\x7b` (verified on v2.4.6: yields
+ * a literal `{`, nothing is evaluated).
+ */
 export function lqString(v: string): string {
   if (/[\u0000-\u001f]/.test(v)) throw new Error("control characters not allowed in script values");
-  return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/#\{/g, "#\\x7b")}"`;
 }
 
 /**
@@ -26,8 +30,9 @@ export function lqString(v: string): string {
  * Source priority: live studio > control-plane queue > fallback folder, with
  * `mksafe` so the output can never go silent.
  *
- * NOTE: written for Liquidsoap 2.x; not yet validated against a running engine
- * (Docker is needed). Treat as a draft until the Phase 1 soak test.
+ * Validated against Liquidsoap v2.4.6 by `npm run test:engine` (spec 002). Telnet
+ * commands are prefixed by the queue id: auto.push, auto.queue (waiting requests only),
+ * auto.skip; request.all lists every request.
  */
 export function generateScript(c: LiquidsoapConfig): string {
   for (const [name, n] of Object.entries({
@@ -47,8 +52,9 @@ queue = request.queue(id="auto")
 # 2) Last-resort folder: always playable
 emergency = mksafe(playlist(mode="randomize", reload_mode="watch", ${lqString(c.fallbackDir)}))
 
-# 3) Live studio feed (highest priority)
-live = input.harbor("live", port=${c.harborPort}, password=${lqString(c.harborPassword)})
+# 3) Live studio feed (highest priority). The default pre-buffer (12 s) delayed the
+#    switch to and from live by more than 10 s (measured, spec 002): keep it short.
+live = input.harbor("live", port=${c.harborPort}, password=${lqString(c.harborPassword)}, buffer=2., max=6.)
 
 radio = fallback(track_sensitive=false, [live, queue, emergency])
 radio = mksafe(radio)

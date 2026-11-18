@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test --test-force-exit \"dist/**/*.test.js\"",
     "start": "node dist/main.js",
-    "gen-engine": "npm run build && node dist/tools/gen-engine.js"
+    "gen-engine": "npm run build && node dist/tools/gen-engine.js",
+    "test:engine": "npm run build && node dist/tools/test-engine.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

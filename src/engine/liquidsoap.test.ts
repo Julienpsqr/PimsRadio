@@ -27,3 +27,7 @@ test("rejects control characters, bad ports and bad mounts", () => {
   assert.throws(() => generateScript({ ...cfg, icecastPort: 0 }));
   assert.throws(() => generateScript({ ...cfg, mount: "radio" }));
 });
+
+test("harbor input uses a short pre-buffer so live switching is fast", () => {
+  assert.match(generateScript(cfg), /input\.harbor\("live", port=8005, password="live", buffer=2\., max=6\.\)/);
+});
