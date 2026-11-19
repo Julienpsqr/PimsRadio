@@ -83,3 +83,24 @@ export function readHttpConfig(env: Record<string, string | undefined>): HttpCon
   }
   return { host, warnings };
 }
+
+export type PlannerConfig = { intervalS: number; aheadS: number };
+
+function boundedInt(env: Record<string, string | undefined>, name: string, def: number, min: number, max: number): number {
+  const text = env[name] ?? String(def);
+  const n = /^\d{1,5}$/.test(text) ? Number(text) : NaN;
+  if (!Number.isInteger(n) || n < min || n > max) {
+    throw new ConfigError(`${name} must be an integer between ${min} and ${max}`);
+  }
+  return n;
+}
+
+/** Planner loop settings (spec 022). A wrong value refuses to start; it is never silently corrected. */
+export function readPlannerConfig(env: Record<string, string | undefined>): PlannerConfig {
+  const intervalS = boundedInt(env, "PIMSRADIO_PLANNER_INTERVAL_S", 30, 5, 300);
+  const aheadS = boundedInt(env, "PIMSRADIO_PLANNER_AHEAD_S", 900, 120, 7200);
+  if (aheadS < 2 * intervalS) {
+    throw new ConfigError("PIMSRADIO_PLANNER_AHEAD_S must be at least twice PIMSRADIO_PLANNER_INTERVAL_S");
+  }
+  return { intervalS, aheadS };
+}

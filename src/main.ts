@@ -4,10 +4,12 @@ import { join } from "node:path";
 import { createApi } from "./api/server.js";
 import { openDb } from "./db/db.js";
 import { type AirEngine, FakeEngine } from "./engine/engine.js";
-import { ConfigError, readEngineConfig, readHttpConfig } from "./engine/config.js";
+import { ConfigError, readEngineConfig, readHttpConfig, readPlannerConfig } from "./engine/config.js";
 import { LiquidsoapEngine } from "./engine/liquidsoap-engine.js";
 import { Grid } from "./scheduler/grid.js";
 import { Library } from "./library/library.js";
+import { PlannerLoop } from "./scheduler/loop.js";
+import { Planner } from "./scheduler/planner.js";
 
 const dataDir = process.env.PIMSRADIO_DATA ?? "./data";
 const port = Number(process.env.PORT ?? 8080);
@@ -15,9 +17,11 @@ const timeZone = process.env.PIMSRADIO_TZ ?? "Europe/Paris";
 
 let engineConfig;
 let httpConfig;
+let plannerConfig;
 try {
   httpConfig = readHttpConfig(process.env);
   engineConfig = readEngineConfig(process.env);
+  plannerConfig = readPlannerConfig(process.env);
 } catch (e) {
   if (e instanceof ConfigError) {
     console.error(`Configuration error: ${e.message}`);
@@ -32,6 +36,7 @@ const db = openDb(join(dataDir, "pimsradio.db"));
 const library = new Library(db);
 
 let engine: AirEngine;
+let closeEngine: () => Promise<void> = async () => {};
 if (engineConfig.kind === "liquidsoap") {
   for (const w of engineConfig.warnings) console.warn(`WARNING: ${w}`);
   const live = new LiquidsoapEngine({
@@ -41,18 +46,32 @@ if (engineConfig.kind === "liquidsoap") {
     log: (level, msg) => (level === "warn" ? console.warn : console.log)(`[engine] ${msg}`),
   });
   live.start(); // background: startup never depends on the engine being up
-  for (const sig of ["SIGINT", "SIGTERM"] as const) {
-    process.on(sig, () => {
-      live.close()
-        .catch((e: unknown) => console.error(`[engine] close failed: ${e instanceof Error ? e.message : String(e)}`))
-        .finally(() => process.exit(0));
-    });
-  }
+  closeEngine = () => live.close();
   engine = live;
 } else {
   engine = new FakeEngine();
 }
-// The planner loop (a timer calling Planner.tick) is not wired here yet (out of scope of item 001).
-createApi({ engine, grid: new Grid(db), timeZone, version: "0.0.1" }).listen(port, httpConfig.host, () => {
+
+const grid = new Grid(db);
+// Planner loop (spec 022): runs in the background; an engine or planner failure never stops the
+// interface, and the audio never depends on it (ADR 0001).
+const planner = new Planner(db, grid, library, engine, { timeZone, targetAheadS: plannerConfig.aheadS });
+const loop = new PlannerLoop({
+  tick: (now) => planner.tick(now),
+  intervalMs: plannerConfig.intervalS * 1000,
+  log: (level, msg) => (level === "warn" ? console.warn : console.log)(`[planner] ${msg}`),
+});
+loop.start();
+
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
+  process.on(sig, () => {
+    loop.stop()
+      .then(() => closeEngine())
+      .catch((e: unknown) => console.error(`[shutdown] failed: ${e instanceof Error ? e.message : String(e)}`))
+      .finally(() => process.exit(0));
+  });
+}
+
+createApi({ engine, grid, timeZone, version: "0.0.1", planner: () => loop.status() }).listen(port, httpConfig.host, () => {
   console.log(`PimsRadio listening on ${httpConfig.host}:${port}`);
 });

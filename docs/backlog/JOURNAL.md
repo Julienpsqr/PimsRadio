@@ -13,3 +13,5 @@
 - **Après 001 :** jalon J1 (docs/ROADMAP.md) : 022 (câbler le planificateur), 003 (silence et alertes), 004 (aircheck).
 - À vérifier au retour : `docker ps -a`, `docker network ls`, `docker volume ls` (nettoyer tout reste du projet : préfixe `pimsradio`), `git status`, `git log --oneline main..HEAD`.
 - Décisions et questions en attente : voir docs/backlog/QUESTIONS.md. En attente d'infos d'une radio pilote : état de l'émetteur (017c), exports de droits (018b).
+
+- 2026-11-19 · 022 Câblage du planificateur : spec docs/specs/022-cablage-planificateur.md, `PlannerLoop` (src/scheduler/loop.ts), configuration, état dans `/api/health`, docs FR+EN, CHANGELOG. Tests verts (131), typecheck et check:licenses OK. Statut : in-review. Reste : QA indépendante et revue, puis fusion ; ensuite 003 (silence et alertes) puis 004 (aircheck).

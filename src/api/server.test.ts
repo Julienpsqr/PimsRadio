@@ -53,3 +53,23 @@ test("health stays 200 with engine=false and no raw message when the engine misb
   assert.ok(!text.includes("secret"));
   server.close();
 });
+
+test("7. health exposes the planner state with fixed fields only, and is unchanged without it", async () => {
+  const db = openDb(":memory:");
+  const status = { running: true, stalled: false, lastTickAt: "2026-07-01T10:00:00.000Z", lastOkAt: null, lastPushed: 3, note: null, consecutiveFailures: 1 };
+  const withLoop = createApi({ engine: new FakeEngine(), grid: new Grid(db), timeZone: "Europe/Paris", version: "t", planner: () => status });
+  const broken = createApi({ engine: new FakeEngine(), grid: new Grid(db), timeZone: "Europe/Paris", version: "t", planner: () => { throw new Error("secret"); } });
+  const bodies: unknown[] = [];
+  let text = "";
+  for (const s of [withLoop, broken]) {
+    await new Promise<void>((r) => s.listen(0, "127.0.0.1", r));
+    const res = await fetch(`http://127.0.0.1:${(s.address() as AddressInfo).port}/api/health`);
+    text = await res.text();
+    assert.equal(res.status, 200);
+    bodies.push(JSON.parse(text));
+    s.close();
+  }
+  assert.deepEqual((bodies[0] as { planner: unknown }).planner, status);
+  assert.equal("planner" in (bodies[1] as object), false);
+  assert.ok(!text.includes("secret"));
+});

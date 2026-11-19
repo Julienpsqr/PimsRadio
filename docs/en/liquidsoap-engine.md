@@ -31,3 +31,14 @@ The Liquidsoap telnet server has **no authentication**: anyone who reaches it ca
 The generated script registers a read-only command, `pims.state`, answering `key=value` lines then `END`: `source` (`direct` if the studio input is ready, else `auto` if the queue is ready, else `fallback`), `rid` and `filename` of the track being played (empty when live), `uptime` (seconds since the script started, used to detect a restart). The form is validated with `--check` and on Liquidsoap v2.4.6 by `npm run test:engine`. Line breaks in the file name are replaced on the Liquidsoap side and the client only reads the first occurrence of each key.
 
 Known limits: `skip` only acts on the queue (`auto`), not on a live feed nor on the fallback; a track's `startedAt` is the time PimsRadio first saw it on air.
+
+## The planner (queue-filling loop)
+
+At startup PimsRadio starts a background loop that fills the engine queue ahead of time (spec 022). It never blocks startup and cannot silence the radio: if it stops, the engine plays what is already queued, then its fallback folder.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PIMSRADIO_PLANNER_INTERVAL_S` | `30` | Seconds between two passes (5 to 300). |
+| `PIMSRADIO_PLANNER_AHEAD_S` | `900` | Seconds of audio to keep queued (120 to 7200, at least twice the interval). |
+
+An invalid value prevents startup with a clear message. The loop state is readable on `/api/health`, field `planner`: `running`, `stalled` (a pass lasts more than 60 s), `lastTickAt`, `lastOkAt`, `lastPushed`, `note` (fixed text, for instance engine unreachable or empty library) and `consecutiveFailures`. An unreachable engine is not a loop failure: it retries on the next pass.

@@ -2,12 +2,15 @@
 import { createServer, type Server } from "node:http";
 import type { AirEngine, AudioEngine, EngineDetail } from "../engine/engine.js";
 import { type Grid, resolveSlot } from "../scheduler/grid.js";
+import type { PlannerStatus } from "../scheduler/loop.js";
 
 export interface ApiDeps {
   engine: AudioEngine;
   grid: Grid;
   timeZone: string;
   version: string;
+  /** Read-only planner state for the health endpoint (spec 022). */
+  planner?: () => PlannerStatus;
   now?: () => Date;
 }
 
@@ -28,7 +31,14 @@ export function createApi(deps: ApiDeps): Server {
         // Only fixed fields (an error code, never a raw message): safe to expose.
         let engineDetail: EngineDetail | undefined;
         try { engineDetail = (deps.engine as Partial<AirEngine>).detail?.(); } catch { engineDetail = undefined; }
-        return send(200, { ok: true, version: deps.version, engine, ...(engineDetail ? { engineDetail } : {}) });
+        // Fixed fields only (spec 022): no raw error text.
+        let planner: PlannerStatus | undefined;
+        try { planner = deps.planner?.(); } catch { planner = undefined; }
+        return send(200, {
+          ok: true, version: deps.version, engine,
+          ...(engineDetail ? { engineDetail } : {}),
+          ...(planner ? { planner } : {}),
+        });
       }
       if (req.method === "GET" && url.pathname === "/api/now") {
         return send(200, { slot: resolveSlot(deps.grid.all(), now(), deps.timeZone) });

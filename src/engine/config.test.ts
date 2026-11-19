@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ConfigError, isLoopbackHost, readEngineConfig, readHttpConfig } from "./config.js";
+import { ConfigError, isLoopbackHost, readEngineConfig, readHttpConfig, readPlannerConfig } from "./config.js";
 
 const ls = (env: Record<string, string>) => readEngineConfig({ PIMSRADIO_ENGINE: "liquidsoap", ...env });
 
@@ -69,4 +69,17 @@ test("interface host: loopback by default, non-loopback refused unless PIMSRADIO
   const ok = readHttpConfig({ PIMSRADIO_HOST: "0.0.0.0", PIMSRADIO_ALLOW_REMOTE_UI: "1" });
   assert.equal(ok.host, "0.0.0.0");
   assert.equal(ok.warnings.length, 1);
+});
+
+test("8. planner configuration: defaults, bounds, coherence", () => {
+  assert.deepEqual(readPlannerConfig({}), { intervalS: 30, aheadS: 900 });
+  assert.deepEqual(readPlannerConfig({ PIMSRADIO_PLANNER_INTERVAL_S: "5", PIMSRADIO_PLANNER_AHEAD_S: "120" }), { intervalS: 5, aheadS: 120 });
+  assert.deepEqual(readPlannerConfig({ PIMSRADIO_PLANNER_INTERVAL_S: "300", PIMSRADIO_PLANNER_AHEAD_S: "7200" }), { intervalS: 300, aheadS: 7200 });
+  const bad: Array<Record<string, string>> = [
+    { PIMSRADIO_PLANNER_INTERVAL_S: "4" }, { PIMSRADIO_PLANNER_INTERVAL_S: "301" }, { PIMSRADIO_PLANNER_INTERVAL_S: "" },
+    { PIMSRADIO_PLANNER_INTERVAL_S: "abc" }, { PIMSRADIO_PLANNER_INTERVAL_S: "1e2" }, { PIMSRADIO_PLANNER_INTERVAL_S: "-5" },
+    { PIMSRADIO_PLANNER_AHEAD_S: "119" }, { PIMSRADIO_PLANNER_AHEAD_S: "7201" }, { PIMSRADIO_PLANNER_AHEAD_S: "12.5" },
+    { PIMSRADIO_PLANNER_INTERVAL_S: "100", PIMSRADIO_PLANNER_AHEAD_S: "199" },
+  ];
+  for (const env of bad) assert.throws(() => readPlannerConfig(env), ConfigError, JSON.stringify(env));
 });

@@ -31,3 +31,14 @@ Le serveur telnet de Liquidsoap n'a **aucune authentification** : qui l'atteint 
 Le script généré enregistre une commande en lecture seule, `pims.state`, qui répond par des lignes `clé=valeur` puis `END` : `source` (`direct` si l'entrée studio est prête, sinon `auto` si la file est prête, sinon `fallback`), `rid` et `filename` du morceau en cours (vides en direct), `uptime` (secondes depuis le démarrage du script, sert à détecter un redémarrage). Forme validée avec `--check` et sur Liquidsoap v2.4.6 par `npm run test:engine`. Le nom de fichier a ses sauts de ligne remplacés côté Liquidsoap, et le client ne lit que la première occurrence de chaque clé.
 
 Écarts connus : `skip` n'agit que sur la file (`auto`), pas sur un direct ni sur le secours ; `startedAt` d'un titre est l'heure à laquelle PimsRadio l'a vu pour la première fois à l'antenne.
+
+## Le planificateur (boucle de remplissage)
+
+Au démarrage, PimsRadio lance en tâche de fond une boucle qui remplit la file du moteur à l'avance (spec 022). Elle ne bloque jamais le démarrage et ne peut pas faire taire la radio : si elle s'arrête, le moteur joue ce qui est déjà en file, puis son dossier de secours.
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `PIMSRADIO_PLANNER_INTERVAL_S` | `30` | Secondes entre deux passages (5 à 300). |
+| `PIMSRADIO_PLANNER_AHEAD_S` | `900` | Durée de son à garder en file (120 à 7200, au moins deux fois l'intervalle). |
+
+Une valeur invalide empêche le démarrage avec un message clair. L'état de la boucle est lisible sur `/api/health`, champ `planner` : `running`, `stalled` (un passage dure plus de 60 s), `lastTickAt`, `lastOkAt`, `lastPushed`, `note` (texte fixe, par exemple moteur injoignable ou bibliothèque vide) et `consecutiveFailures`. Un moteur injoignable n'est pas un échec de la boucle : elle réessaie au passage suivant.
